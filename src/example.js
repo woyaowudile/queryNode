@@ -12,11 +12,26 @@ const modelJs = require('./model')
 const app = express()
 const port = 3333
 
-const CODELIST = createCodes(600000, 600999);
+const CODE000 = createCodes('000001', '000999');
+const CODE600 = createCodes(600000, 600999);
+const CODE601 = createCodes(601000, 601999);
+const CODE603 = createCodes(603000, 603999);
+const CODELIST = {
+    'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
+};
+let codeName = 'ig502_datas_603'
+
+let todayCodes = []
 let usedCodes = []
 let failCodes = []
 let code404 = []
-let stash = {}
+let stash = {
+    list: [],
+    results: {}
+}
 
 global.example = {
     beforeFlag: true,
@@ -59,15 +74,17 @@ function handleDisconnection() {
             console.log('start time：' + new Date().toLocaleString());
             // 1. 将成功的 和 不存在 的code 都取出来
             const res1 = await getConnectionDB('ig502_404', 'SELECT code FROM ig502_404')
-            code404 = res1.data.map(level1 => level1.code)
+            code404 = res1.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
             const res2 = await getConnectionDB('ig502_used', 'SELECT code FROM ig502_used')
-            usedCodes = res2.data.map(level1 => level1.code)
+            usedCodes = res2.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
+            const res3 = await getConnectionDB('ig502_today', 'SELECT code FROM ig502_today')
+            todayCodes = res3.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
 
             // console.log(modelJs.all);
             
             // // 2. 初始化
             if (example.init) {
-                // init()
+                init()
             }
         }
     });
@@ -103,59 +120,45 @@ app.get('/api/init',  async (req, res) => {
     example.init = true
     init()
 })
+app.get('/api/update',  async (req, res) => {
+    update()
+})
 
 app.get('/api/before/download',  async (req, res) => {
-    // 批量查询，一个select创建一个sql连接，影响性能
-    // let strs = usedCodes.join(',')
-    if (!example.beforeFlag) return
+    /**
+     * query: {
+     *      d: 'today' 或者 3(指定天数，比如3天前) 
+     * }
+     * today： 会将模型只筛选出 当天为买入的。
+     *      否则不筛选，是数据的全部(多少取决于天数 )，
+     *      且按model导出excel
+     * 不传参数：默认查找有史以来所有的数据，且按model导出excel
+     */
     let query = req.query
-    let strs = createCodes(600000, 600999).join(',')
-    let sql = `select * from ig502_datas where code in (${strs})`
-    // 今天 之前的 几天， 例如 query.d = 7就是一周前，今天是7-23的7天前是7-16
-    if (query.d) {
-        // 7天前处理成 '2021-7-16'
-        let days = someDay(query.d / 1) 
-        // 查询某个时间段的值 (注意d是字符串类型)
-        sql += `and d >= '${days}'`
-    }
-    console.log('开始查询 ig502_datas');
-    example.beforeFlag= false
-    connection.query(sql, (err, results) => {
-        if (err) {
-            console.log('查询ig502_datas失败:', err.message);
+    let keys = Object.keys(CODELIST)
+    let count = keys.length - 1
+    let callback = async () => {
+        if (count < 0) {
+            download(stash.list, '汇总', {d: query.d})
+            return
         }
-        stash.list = results
-        example.beforeFlag= true
-        debugger
-        console.log(`ig502_datas 共 ${ results.length } 条, 写入stsh 完成`);
-    })
+        let name = keys[count]
+        const r = await beforeDownload(query, name)
+        count--
+        callback()
+    }
+    callback()
 })
 
 app.get('/api/download',  async (req, res) => {
-    if (!example.downloadFlag) return
-    example.downloadFlag = false
-    getModelClick()
-    console.log('准备写入');
-    let header = [ 'code', 'date', 'type' ]
-    let lists = []
-    Object.keys(stash.results).forEach(level1 => {
-        let datas = stash.results[level1]
-        lists.push({
-            name: level1,
-            data: [
-                header,
-                ...datas
-            ]
-        }) 
-    })
-    const buffer = nodeExcel.build(lists);// list 的格式也需要跟上述格式一致
-    console.log('开始写入');
-    fs.writeFile('excelfile.xlsx', buffer, function (err) {
-        if (err)
-            throw err;
-        example.downloadFlag = true
-        console.log('写入完成');
-    });
+    /**
+     * query： {
+     *      flag: Boolean // true: 按code导出。false：按model导出
+     *      d: 同上，但这里就和天数没关系了，只有today和其他。
+     * }
+     */
+    let query = req.query
+    download(stash.list, '汇总', query)
 })
 
 app.get('/api/testmodel',  async (req, res) => {
@@ -172,7 +175,7 @@ app.post('/api/checkDatas',  async (req, res) => {
         let json1 = JSON.parse(data)
         let strs = json1.join(',')
         // 批量查询，一个select创建一个sql连接，影响性能
-        let sql = `select * from ig502_datas where code in (${strs})`
+        let sql = `select * from ${codeName} where code in (${strs})`
         connection.query(sql, (err, results) => {
             if (err) {
                 console.log('查询ig502_datas失败:', err.message);
@@ -206,9 +209,8 @@ app.get('/api/getusedcodes',  async (req, res) => {
  *  根据数据 搜索模型
  */
 
-function getModelClick() {
+function getModelClick(datas = stash.list) {
     console.log('开始筛选');
-    let datas = stash.list
     let results = {}
     datas.forEach(level2 => {
         let { code } = level2;
@@ -227,37 +229,162 @@ function getModelClick() {
 function getModel(data, code) {
     let results = [];
     data.forEach((level1, start) => {
+        // d1 不确定是阴、阳线时，就放在switch的外面
         let params = { data, start, results, code };
+        modelJs.all.isLzyy(params);
+        modelJs.all.isFkwz(params);
+        modelJs.all.isFlzt(params);
         switch (modelJs.all.YingYang(level1)) {
             case 1:
                 modelJs.all.isQx1(params);
                 modelJs.all.isQx2(params);
-                // modelJs.all.isFkwz(params);
-                // modelJs.all.isCsfr(params);
+                modelJs.all.isCsfr(params);
+                modelJs.all.isDY(params);
                 break;
             case 2:
                 modelJs.all.isYjsd(params);
-                modelJs.all.isYydl(params); // ok
-                // modelJs.all.isGsdn(params);
-                // modelJs.all.isDY(params);
+                modelJs.all.isYydl(params);
+                modelJs.all.isGsdn(params);
                 break;
             default:
                 break;
         }
     });
-    if (!stash.results) {
-        stash.results = {}
-    }
     stash.results[code] = results
 }
 /********************************************* */
 
+/**
+ *  下载准备前后
+ */
+function beforeDownload(query, type) {
+    
+    // 批量查询，一个select创建一个sql连接，影响性能
+    // let strs = usedCodes.join(',')
+    // codeName = `ig502_datas_${query.code}`
+    let strs = CODELIST[type].join(',')
+    // let strs = createCodes(600000, 600009).join(',')
+    let sql = `select * from ${type} where code in (${strs})`
+    // 今天 之前的 几天， 例如 query.d = 7就是一周前，今天是7-23的7天前是7-16
+    if (query.d) {
+        // 7天前处理成 '2021-7-16' 
+        let days = someDay(query.d / 1) 
+        // 查询某个时间段的值 (注意d是字符串类型)
+        sql += `and d >= '${days}'`
+    }
+    console.log(`开始查询 ${type}`);
+    return new Promise((reslove, reject) => {
+        connection.query(sql, (err, results) => {
+            if (err) {
+                console.log(`查询${type}失败:`, err.message);
+                reject(`查询${type}失败:`, err.message)
+            }
+            stash.list = stash.list.concat(results)
+            console.log(`${type} 共 ${ results.length } 条, 写入stsh 完成`);
+            reslove(`${type} 共 ${ results.length } 条, 写入stsh 完成`)
+        })
+    })
+}
+function download(results, type, {d='all', flag = false} = {}) {
+    getModelClick(results)
+    console.log('准备写入');
+    let now = new Date().toLocaleDateString()
+    let header = [ 'code', 'date', 'buyDate', 'type' ]
+    let lists = [], obj = {}, model = 'model'
+    if (flag) {
+        model = 'code'
+        // 按code分sheet页，即 600000 包含所有 模型
+        Object.keys(stash.results).forEach(level1 => {
+            let arr = stash.results[level1]
+            if (!obj[level1]) obj[level1] = [arr]
+            else obj[level1].push(arr)
+        })
+    }
+    else {
+        // 按 模型 分sheet页，即 一箭双雕 包含所有 code
+        let arr = [] // [{}, {}]
+        Object.values(stash.results).forEach(level1 => arr = arr.concat(level1))
+        arr.forEach(level1 => {
+            let [code, date, buy, name] = level1
+            if (!obj[name]) obj[name] = [level1]
+            else obj[name].push(level1)
+        })
+    }
+    Object.keys(obj).forEach(level1 => {
+        let datas = obj[level1].filter(level2 => {
+            if (d === 'today') {
+                return level2[2] === now
+            } else {
+                return true
+            }
+        })
+        lists.push({
+            name: level1,
+            data: [
+                header,
+                ...datas
+            ]
+        })
+    })
+    const buffer = nodeExcel.build(lists);// list 的格式也需要跟上述格式一致
+    console.log('开始写入');
+    fs.writeFile(`${type}${model}_d-${d}.xlsx`, buffer, function (err) {
+        if (err)
+            throw err;
+        console.log('写入完成');
+    });
+}
+/* ******************************************** */
+
+function update() {
+   let codes = usedCodes.filter(level1 => !todayCodes.includes(level1))
+//    let objs = {
+//        a: [{a1:1},{a2:2},{a3:3}],
+//        b: [{b1:1},{b2:2},{b3:3}],
+//    }
+    let keys = Object.keys(CODELIST)
+    let index = keys.length
+   
+    let unusecodes = CODELIST[keys[--index]].filter(level1 => codes.includes(level1))
+    let count = unusecodes.length
+
+
+   let next = function () {
+       if (count < 1) {
+           console.log('over');
+           if (--index >= 0) {
+                unusecodes = CODELIST[keys[index]].filter(level1 => codes.includes(level1))
+                count = unusecodes.length
+                next()
+           } else {
+               return
+           }
+       } else {
+           // 3. 开始递归 获取 -> 存储
+           setTimeout( async () => {
+               let code = unusecodes[--count]
+               console.log(code, '---', new Date().toLocaleString());
+               const res1 = await getApi(code, 'real/time')
+               console.log(`${code}：${res1.code}`);
+               if (res1.code === 200) {
+                   // 3.2 将数据写入数据库
+                   const res2 = await getConnection(code, addSql(code, '[' + res1.message + ']', 'ig502_today'))
+                   const res3 = await getConnection(code, addSql(code, '[' + res1.message + ']', keys[index]))
+                   console.log(res3, keys[index]);
+               }
+               next()
+           }, 2100);
+       }
+   }
+   next(count, unusecodes)
+}
 
 function init() {
+    debugger
      // 1. 将数据库中的404都拿出来，合并在一起
     let codes = code404.concat(usedCodes)
     // 2. 排除所有已失效的code
-    let unusecodes = CODELIST.filter(level1 => !codes.includes(level1))
+    let unusecodes = CODELIST[codeName].filter(level1 => !codes.includes(level1))
     
     let count = unusecodes.length
     let next = function () {
@@ -274,7 +401,7 @@ function init() {
             console.log(`${code}：${res1.code}`);
             if (res1.code === 200) {
                 // 3.1 将成功的code存储
-                let sql = `INSERT INTO ig502_used(code) VALUES(${code})`
+                let sql = `INSERT INTO ig502_used(code, type) VALUES(${code}, ${codeName.split('_')[2]})`
                 await getConnection(code, sql)
                 // 3.2 将数据写入数据库
                 await getConnection(code, addSql(code, res1.message))
@@ -288,10 +415,10 @@ function init() {
     next()
 }
 
-function getApi(code) {
+function getApi(code, type) {
     return new Promise((reslove, reject) => {
         request({
-            url: ig502.getUrl(code),
+            url: ig502.getUrl(code, type),
             method:'GET',
             headers:{'Content-Type':'text/json' }
         }, (error,response,body) => {
@@ -356,9 +483,9 @@ function getConnection(code, sql) {
     })
 }
 
-function addSql(code, body) {
+function addSql(code, body, name = codeName) {
     let json1 = JSON.parse(body)
-    let add = `INSERT INTO ig502_datas(code,o,c,h,l,d,v) VALUES`
+    let add = `INSERT INTO ${name}(code,o,c,h,l,d,v) VALUES`
     let str = json1.map(level1 => {
         let { o,c,h,l,d,v } = level1
         return `(${code}, ${o}, ${c}, ${h}, ${l}, '${d}', ${v})`
@@ -371,7 +498,7 @@ function addSql(code, body) {
 function createCodes(start, end) {
     let results = [];
     for (let i = start; i <= end; i++) {
-        results.push(i);
+        results.push((i+'').padStart(6, 0));
     }
     return results;
 }

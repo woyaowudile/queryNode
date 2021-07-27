@@ -6,8 +6,8 @@ const LICENCE = '3E68261B-3A3D-88E6-E903-B0C327D49AA4';
 // }
 
 module.exports = {
-    getUrl: (code) => {
-        return `http://ig507.com/data/time/history/trade/${code}/Day_qfq?licence=${LICENCE}`
+    getUrl: (code, type='history/trade') => {
+        return `http://ig507.com/data/time/${type}/${code}/Day_qfq?licence=${LICENCE}`
     }
 }
 // export {
