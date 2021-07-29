@@ -264,18 +264,6 @@ const all = {
         results.push([ code, d2.d, buyDate(d4.d, 1), '飞龙在天' ]);
         console.log(`${code}飞龙在天`, d2.d, `累计第 ${++count} 个`);
     },
-    YingYang(data) {
-        if (!data) return;
-        // ying1， yang2，shizixing3
-        let { o, c } = data;
-        if (c < o) {
-            return 1;
-        } else if (c > o) {
-            return 2;
-        } else {
-            return 3;
-        }
-    },
     // 测试用
     testIsZTB({ data, start, code }) {
         let [d1, d2] = getModelLengthData(data, start, 2);
@@ -289,4 +277,7 @@ const all = {
 
 // export { YingYang };
 
-exports.all = all
+module.exports = {
+    ...all,
+    YingYang
+}

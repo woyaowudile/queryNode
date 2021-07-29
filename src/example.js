@@ -80,7 +80,7 @@ function handleDisconnection() {
             const res3 = await getConnectionDB('ig502_today', 'SELECT code FROM ig502_today')
             todayCodes = res3.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
 
-            // console.log(modelJs.all);
+            // console.log(modelJs);
             
             // // 2. 初始化
             if (example.init) {
@@ -231,20 +231,20 @@ function getModel(data, code) {
     data.forEach((level1, start) => {
         // d1 不确定是阴、阳线时，就放在switch的外面
         let params = { data, start, results, code };
-        modelJs.all.isLzyy(params);
-        modelJs.all.isFkwz(params);
-        modelJs.all.isFlzt(params);
-        switch (modelJs.all.YingYang(level1)) {
+        modelJs.isLzyy(params);
+        modelJs.isFkwz(params);
+        modelJs.isFlzt(params);
+        switch (modelJs.YingYang(level1)) {
             case 1:
-                modelJs.all.isQx1(params);
-                modelJs.all.isQx2(params);
-                modelJs.all.isCsfr(params);
-                modelJs.all.isDY(params);
+                modelJs.isQx1(params);
+                modelJs.isQx2(params);
+                modelJs.isCsfr(params);
+                modelJs.isDY(params);
                 break;
             case 2:
-                modelJs.all.isYjsd(params);
-                modelJs.all.isYydl(params);
-                modelJs.all.isGsdn(params);
+                modelJs.isYjsd(params);
+                modelJs.isYydl(params);
+                modelJs.isGsdn(params);
                 break;
             default:
                 break;
@@ -328,7 +328,8 @@ function download(results, type, {d='all', flag = false} = {}) {
     })
     const buffer = nodeExcel.build(lists);// list 的格式也需要跟上述格式一致
     console.log('开始写入');
-    fs.writeFile(`${type}${model}_d-${d}.xlsx`, buffer, function (err) {
+    let date = new Date().toLocaleDateString().replace(/\//g, '')
+    fs.writeFile(`${type}${model}_${date}_d-${d}.xlsx`, buffer, function (err) {
         if (err)
             throw err;
         console.log('写入完成');
