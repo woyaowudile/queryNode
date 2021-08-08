@@ -1,6 +1,7 @@
 
 const request = require('request')
 const express = require('express')
+const schdule = require('node-schedule')
 
 const nodeExcel = require('node-xlsx');
 const fs = require('fs');
@@ -12,17 +13,23 @@ const modelJs = require('./model')
 const app = express()
 const port = 3333
 
-const CODE000 = createCodes('000001', '000999');
+// 深市
+const CODE000 = createCodes('002941', '002941');
+// 002中小板\300创业板
+// const CODE002 = createCodes('002000', '002999');
+// 沪市
 const CODE600 = createCodes(600000, 600999);
 const CODE601 = createCodes(601000, 601999);
 const CODE603 = createCodes(603000, 603999);
 const CODELIST = {
-    'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
-    'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
-    'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
+    // 'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
 };
-let codeName = 'ig502_datas_603'
+let codeName = 'ig502_datas_600'
+let dwmType = 'day'
 
 let todayCodes = []
 let usedCodes = []
@@ -72,17 +79,13 @@ function handleDisconnection() {
             console.log('连接成功 id ' + connection.threadId);
             
             console.log('start time：' + new Date().toLocaleString());
-            // 1. 将成功的 和 不存在 的code 都取出来
-            const res1 = await getConnectionDB('ig502_404', 'SELECT code FROM ig502_404')
-            code404 = res1.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
-            const res2 = await getConnectionDB('ig502_used', 'SELECT code FROM ig502_used')
-            usedCodes = res2.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
-            const res3 = await getConnectionDB('ig502_today', 'SELECT code FROM ig502_today')
-            todayCodes = res3.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
+            // // 1. 将成功的 和 不存在 的code 都取出来
+            // await initQuery()
 
             // console.log(modelJs);
             
             // // 2. 初始化
+            nodeSchedule()
             if (example.init) {
                 init()
             }
@@ -117,15 +120,29 @@ app.get('/api/getfile',  async (req, res) => {
 })
 
 app.get('/api/init',  async (req, res) => {
+    // 1. 将成功的 和 不存在 的code 都取出来
+    await initQuery()
     example.init = true
+    let query = req.query
+    dwmType = query.type
+    codeName = query.code ? `ig502_datas_${query.code}` : 'ig502_datas_600'
     init()
 })
 app.get('/api/update',  async (req, res) => {
+    // 1. 将成功的 和 不存在 的code 都取出来
+    await initQuery()
+    let query = req.query
+    dwmType = query.type || 'day'
     update()
 })
 
 app.get('/api/before/download',  async (req, res) => {
+    // 1. 将成功的 和 不存在 的code 都取出来
+    await initQuery()
+    let query = req.query
+    dwmType = query.type || 'day'
     /**
+     * type: 'day | week | month'
      * query: {
      *      d: 'today' 或者 3(指定天数，比如3天前) 
      * }
@@ -134,7 +151,6 @@ app.get('/api/before/download',  async (req, res) => {
      *      且按model导出excel
      * 不传参数：默认查找有史以来所有的数据，且按model导出excel
      */
-    let query = req.query
     let keys = Object.keys(CODELIST)
     let count = keys.length - 1
     let callback = async () => {
@@ -231,20 +247,27 @@ function getModel(data, code) {
     data.forEach((level1, start) => {
         // d1 不确定是阴、阳线时，就放在switch的外面
         let params = { data, start, results, code };
-        modelJs.isLzyy(params);
-        modelJs.isFkwz(params);
-        modelJs.isFlzt(params);
+        // modelJs.isSlbw3(params);
+        // modelJs.isSlbw4(params);
+        // // modelJs.isCBZ(params);
+        // modelJs.isLzyy(params);
+        // // modelJs.isFkwz(params);
+        // modelJs.isFlzt(params);
         switch (modelJs.YingYang(level1)) {
             case 1:
-                modelJs.isQx1(params);
-                modelJs.isQx2(params);
-                modelJs.isCsfr(params);
-                modelJs.isDY(params);
+                // modelJs.isQx1(params);
+                // modelJs.isQx2(params);
+                // // modelJs.isCsfr(params);
+                // modelJs.isDY(params);
                 break;
             case 2:
+                // if (modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
+                //     modelJs.isSlbw1(params)
+                // }
+                // modelJs.isLahm(params);
                 modelJs.isYjsd(params);
-                modelJs.isYydl(params);
-                modelJs.isGsdn(params);
+                // modelJs.isYydl(params);
+                // modelJs.isGsdn(params);
                 break;
             default:
                 break;
@@ -264,7 +287,7 @@ function beforeDownload(query, type) {
     // codeName = `ig502_datas_${query.code}`
     let strs = CODELIST[type].join(',')
     // let strs = createCodes(600000, 600009).join(',')
-    let sql = `select * from ${type} where code in (${strs})`
+    let sql = `select * from ${type} where code in (${strs}) and type='${dwmType}'`
     // 今天 之前的 几天， 例如 query.d = 7就是一周前，今天是7-23的7天前是7-16
     if (query.d) {
         // 7天前处理成 '2021-7-16' 
@@ -350,6 +373,11 @@ function update() {
     let count = unusecodes.length
 
 
+    let type = {
+        day: 'Day_qfq',
+        week: 'Week_qfq',
+        month: 'Month_qfq',
+    }
    let next = function () {
        if (count < 1) {
            console.log('over');
@@ -365,7 +393,7 @@ function update() {
            setTimeout( async () => {
                let code = unusecodes[--count]
                console.log(code, '---', new Date().toLocaleString());
-               const res1 = await getApi(code, 'real/time')
+               const res1 = await getApi(code, 'real/time', type[dwmType])
                console.log(`${code}：${res1.code}`);
                if (res1.code === 200) {
                    // 3.2 将数据写入数据库
@@ -381,7 +409,11 @@ function update() {
 }
 
 function init() {
-    debugger
+    let type = {
+        day: 'Day_qfq',
+        week: 'Week_qfq',
+        month: 'Month_qfq',
+    }
      // 1. 将数据库中的404都拿出来，合并在一起
     let codes = code404.concat(usedCodes)
     // 2. 排除所有已失效的code
@@ -397,17 +429,17 @@ function init() {
         setTimeout( async () => {
             let code = unusecodes[--count]
             console.log(code, '---', new Date().toLocaleString());
-            const res1 = await getApi(code)
+            const res1 = await getApi(code, 'history/trade', type[dwmType])
             debugger
             console.log(`${code}：${res1.code}`);
             if (res1.code === 200) {
                 // 3.1 将成功的code存储
-                let sql = `INSERT INTO ig502_used(code, type) VALUES(${code}, ${codeName.split('_')[2]})`
+                let sql = `INSERT INTO ig502_used(code, type, type1) VALUES(${code}, ${codeName.split('_')[2]}, '${dwmType}')`
                 await getConnection(code, sql)
                 // 3.2 将数据写入数据库
                 await getConnection(code, addSql(code, res1.message))
             } else if (res1.code === 404) {
-                let sql = `INSERT INTO ig502_404(code) VALUES(${code})`
+                let sql = `INSERT INTO ig502_404(code, type) VALUES(${code}, '${dwmType}')`
                 await getConnection(code, sql)
             }
             next()
@@ -473,7 +505,7 @@ function getConnection(code, sql) {
         connection.query(sql, (err, result) => {
             if (err) {
                 failCodes.push(code)
-                connection.query(`DELETE  FROM ig502_used WHERE code=${code}`)
+                connection.query(`DELETE  FROM ig502_used WHERE code=${code} and type='${dwmType}'`)
                 debugger
                 console.log(`${code}: ${err.message}`);
                 reslove(`${code}: 写入失败`)
@@ -486,10 +518,10 @@ function getConnection(code, sql) {
 
 function addSql(code, body, name = codeName) {
     let json1 = JSON.parse(body)
-    let add = `INSERT INTO ${name}(code,o,c,h,l,d,v) VALUES`
+    let add = `INSERT INTO ${name}(code,o,c,h,l,d,v,type) VALUES`
     let str = json1.map(level1 => {
         let { o,c,h,l,d,v } = level1
-        return `(${code}, ${o}, ${c}, ${h}, ${l}, '${d}', ${v})`
+        return `(${code}, ${o}, ${c}, ${h}, ${l}, '${d}', ${v}, '${dwmType}')`
     })
     add += str.join(',')
     return add
@@ -522,6 +554,31 @@ function wait(ms) {
     }, ms));
 }
 
+async function initQuery() {
+    const res1 = await getConnectionDB('ig502_404', `SELECT code FROM ig502_404 WHERE type='${dwmType}'`)
+    code404 = res1.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
+    const res2 = await getConnectionDB('ig502_used', `SELECT code FROM ig502_used WHERE type='${dwmType}'`)
+    usedCodes = res2.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
+    const res3 = await getConnectionDB('ig502_today', 'SELECT code FROM ig502_today')
+    todayCodes = res3.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
+    return new Promise((reslove, reject) => reslove())
+}
+
+
+function nodeSchedule() {
+    // '* * * * * *' '秒分时日月周'
+    // 例： 每日的12.30 -> '00 30 12 * * *'
+    schdule.scheduleJob('00 30 16 * * *', () => {
+    // schdule.scheduleJob('10 * * * * *', () => {
+        connection.query('DELETE FROM ig502_today', async (err, result) => {
+            if (err) {
+            } else {
+                await initQuery()
+                update()
+            }
+        })
+    })
+}
 
 app.listen(port, () => {
     console.log(`Example app listening at http://localhost:${port}`)

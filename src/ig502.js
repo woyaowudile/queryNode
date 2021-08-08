@@ -6,8 +6,9 @@ const LICENCE = '3E68261B-3A3D-88E6-E903-B0C327D49AA4';
 // }
 
 module.exports = {
-    getUrl: (code, type='history/trade') => {
-        return `http://ig507.com/data/time/${type}/${code}/Day_qfq?licence=${LICENCE}`
+    // dwm : 日、周、月
+    getUrl: (code, type='history/trade', dwm='Day_qfq') => {
+        return `http://ig507.com/data/time/${type}/${code}/${dwm}?licence=${LICENCE}`
     }
 }
 // export {
