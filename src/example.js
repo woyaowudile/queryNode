@@ -14,19 +14,19 @@ const app = express()
 const port = 3333
 
 // 深市
-const CODE000 = createCodes('002941', '002941');
+const CODE000 = createCodes('000001', '000999');
 // 002中小板\300创业板
-// const CODE002 = createCodes('002000', '002999');
+const CODE002 = createCodes('002000', '002999');
 // 沪市
 const CODE600 = createCodes(600000, 600999);
 const CODE601 = createCodes(601000, 601999);
 const CODE603 = createCodes(603000, 603999);
 const CODELIST = {
-    // 'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
+    'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
 };
 let codeName = 'ig502_datas_600'
 let dwmType = 'day'
@@ -253,6 +253,7 @@ function getModel(data, code) {
         // modelJs.isLzyy(params);
         // // modelJs.isFkwz(params);
         // modelJs.isFlzt(params);
+        modelJs.isG8M1(params);
         switch (modelJs.YingYang(level1)) {
             case 1:
                 // modelJs.isQx1(params);
@@ -261,11 +262,11 @@ function getModel(data, code) {
                 // modelJs.isDY(params);
                 break;
             case 2:
-                // if (modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
+                // if (start > 0 && modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
                 //     modelJs.isSlbw1(params)
                 // }
                 // modelJs.isLahm(params);
-                modelJs.isYjsd(params);
+                // modelJs.isYjsd(params);
                 // modelJs.isYydl(params);
                 // modelJs.isGsdn(params);
                 break;

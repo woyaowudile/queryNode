@@ -154,17 +154,18 @@ function qs(data, start, n, count = 10) {
     }, 0)
     
     let last1 = boxs[boxs.length - 1].status
-    if (last1 !== 2) return
-    for (let i = boxs.length - 2; i > 0; i--) {
-        if (boxs[i].status === 3) {
-            console.log(i, 3);
-            break
-        } else if (boxs[i].status === 1) {
-            console.log(i, 1)
-            break;
-        }
-    }
-    debugger
+    return last1 === 2
+    // if (last1 !== 2) return
+    // for (let i = boxs.length - 2; i > 0; i--) {
+    //     if (boxs[i].status === 3) {
+    //         // console.log(i, 3);
+    //         return false
+    //     } else if (boxs[i].status === 1) {
+    //         // console.log(i, 1)
+    //         return true
+    //     }
+    // }
+    
 }
 
 function buyDate(date, number) {
@@ -387,50 +388,26 @@ const all = {
         console.log(`${code}柳暗花明`, val.d, buyDate(val.d, 1), `累计第 ${++count} 个`);
     },
     isSlbw1({ data, start, results, code }) {
-        // let befores = {}, afters = {}
-
-        // befores.datas = getModelLengthData(data, start - 30, 31); // 一个月以上，最少22天
-        // afters.datas = getModelLengthData(data, start, 30); // 一周以上，最少5天
-        // let [last] = befores.datas.slice(-1)
-        // debugger
-        // if (!(befores.datas[0] && afters.datas[0])) return
-        // befores.datas.slice(0, 30).forEach(level1 => {
-        //     if (!befores.max || level1.h > befores.max) {
-        //         befores.max = level1.h
-        //     }
-        //     if (!befores.min || level1.l < befores.min) {
-        //         befores.min = level1.l
-        //     }
-        // })
-        // // todo...
-
-        // afters.max = last.c
-        // afters.min = last.o
-        // let num = NaN
-        // let buy = afters.datas.find((level1, index1) => {
-        //     if (level1.c > afters.max && index1 > 5) {
-        //         num = index1
-        //         let pre = afters.datas[index1]
-        //         return level1.v > pre.v
-        //     }
-        // })
-        // let flag = afters.datas.some((level1, index1) => {
-        //     if (index1 <= num) {
-        //         switch(YingYang(level1)) {
-        //             case 1:
-        //                 return level1.o < afters.max && level1.c > afters.min
-        //                 break;
-        //             case 2:
-        //                 return level1.o > afters.min && level1.c < afters.max
-        //                 break;
-        //         }
-        //     }
-        // })
+        // let qsData = qs(data, start, 48, 12)
+        // if (!qsData) return
         
-        // if (!(flag && buy)) return
+        // console.log(code, data[start].d);
+        // let afters = getModelLengthData(data, start, 30); // 一周以上，最少5天
+        // let last = data[start], flag = true
+        // let buy = afters.find((level1, index1) => {
+        //     let min = Math.min(level1.c, level1.o)
+        //     let max = Math.max(level1.c, level1.o)
+        //     if (min < last.c) flag = false 
+        //     if (!flag) return
+        //     if (index1 > 5 && max > last.o) {
+        //         let pre = data[index1 - 1].v
+        //         return level1.v > pre.v ? level1 : null
+        //     }
+        // })
+        // if (!buy) return
+        
         // results.push([ code, last.d, buyDate(buy.d, 1), '神龙摆尾1' ]);
         // console.log(`${code}神龙摆尾1`,last.d, buyDate(buy.d, 1), `累计第 ${++count} 个`);
-        qs(data, start, 48, 12)
     },
     isSlbw3({ data, start, results, code }) {
         let datas = getModelLengthData(data, start, 4);
@@ -464,8 +441,21 @@ const all = {
     },
     isG8M1({ data, start, results, code }) {
         // 10\60
-        let datas = getModelLengthData(data, start, 12);
-        let [d1, d2] = datas
+        let ma60 = MA(getModelLengthData(data, start-59, 60), 60)
+        let ma10 = MA(getModelLengthData(data, start-9, 10), 10)
+        let bma60 = MA(getModelLengthData(data, start-1-59, 60), 60)
+        let bma10 = MA(getModelLengthData(data, start-1-9, 10), 10)
+        // 1. 快速、慢速 值相差幅度很小
+        if (Math.abs(ma60-ma10) > 0.1) return
+        // 2. 慢速 在 快速 的下方
+        if (bma60 > bma10) return
+        // 3. 当前的阳线要上传慢速均线
+        let current = data[start]
+        if (YingYang(current) !== 2) return
+        if (current.c <= ma60) return
+        // 4. 形成
+        results.push([ code, current.d, buyDate(current.d, 1), '葛式八法-买1' ]);
+        console.log(`${code}葛式八法-买1`,current.d, buyDate(current.d, 1), `累计第 ${++count} 个`);
     },
     // 测试用
     testIsZTB({ data, start, results, code }) {
