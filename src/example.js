@@ -120,27 +120,27 @@ app.get('/api/getfile',  async (req, res) => {
 })
 
 app.get('/api/init',  async (req, res) => {
-    // 1. 将成功的 和 不存在 的code 都取出来
-    await initQuery()
     example.init = true
     let query = req.query
     dwmType = query.type
     codeName = query.code ? `ig502_datas_${query.code}` : 'ig502_datas_600'
+    // 1. 将成功的 和 不存在 的code 都取出来
+    await initQuery()
     init()
 })
 app.get('/api/update',  async (req, res) => {
-    // 1. 将成功的 和 不存在 的code 都取出来
-    await initQuery()
     let query = req.query
     dwmType = query.type || 'day'
+    // 1. 将成功的 和 不存在 的code 都取出来
+    await initQuery()
     update()
 })
 
 app.get('/api/before/download',  async (req, res) => {
-    // 1. 将成功的 和 不存在 的code 都取出来
-    await initQuery()
     let query = req.query
     dwmType = query.type || 'day'
+    // 1. 将成功的 和 不存在 的code 都取出来
+    await initQuery()
     /**
      * type: 'day | week | month'
      * query: {
@@ -505,7 +505,7 @@ function getConnection(code, sql) {
         connection.query(sql, (err, result) => {
             if (err) {
                 failCodes.push(code)
-                connection.query(`DELETE  FROM ig502_used WHERE code=${code} and type='${dwmType}'`)
+                connection.query(`DELETE  FROM ig502_used WHERE code=${code} and type1='${dwmType}'`)
                 debugger
                 console.log(`${code}: ${err.message}`);
                 reslove(`${code}: 写入失败`)
@@ -557,7 +557,7 @@ function wait(ms) {
 async function initQuery() {
     const res1 = await getConnectionDB('ig502_404', `SELECT code FROM ig502_404 WHERE type='${dwmType}'`)
     code404 = res1.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
-    const res2 = await getConnectionDB('ig502_used', `SELECT code FROM ig502_used WHERE type='${dwmType}'`)
+    const res2 = await getConnectionDB('ig502_used', `SELECT code FROM ig502_used WHERE type1='${dwmType}'`)
     usedCodes = res2.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
     const res3 = await getConnectionDB('ig502_today', 'SELECT code FROM ig502_today')
     todayCodes = res3.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
