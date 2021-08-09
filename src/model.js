@@ -387,6 +387,23 @@ const all = {
         results.push([ code, val.d, buyDate(val.d, 1), '柳暗花明' ]);
         console.log(`${code}柳暗花明`, val.d, buyDate(val.d, 1), `累计第 ${++count} 个`);
     },
+    isSlbw0({ data, start, results, code }) {
+        let datas = getModelLengthData(data, start, 4);
+        let [d1, d2, d3, d4] = datas
+        if (!d1) return
+        let body = entity(d2)
+        if (!(body < 0.035)) return
+        if (!(d3.l < d2.l)) return
+        if (YingYang(d3) !== 1) return
+        if (YingYang(d4) !== 2) return
+        if (!((d4.c > d3.c) && (d3.l < d4.l))) return
+        let before = getModelLengthData(data, start - 9, 10);
+        let flag = before.every(level1 => level1.l > d3.l)
+        let [result] = xiong(before)
+        if (!(result && flag)) return
+        results.push([ code, d2.d, buyDate(d4.d, 1), '神龙摆尾0' ]);
+        console.log(`${code}神龙摆尾0`,d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
+    },
     isSlbw1({ data, start, results, code }) {
         // let qsData = qs(data, start, 48, 12)
         // if (!qsData) return
@@ -408,6 +425,40 @@ const all = {
         
         // results.push([ code, last.d, buyDate(buy.d, 1), '神龙摆尾1' ]);
         // console.log(`${code}神龙摆尾1`,last.d, buyDate(buy.d, 1), `累计第 ${++count} 个`);
+    },
+    isSlbw2({ data, start, results, code }) {
+        let qsData = qs(data, start, 48, 12)
+        if (!qsData) return
+        
+        let current = data[start]
+
+        if (current.d === '2015-09-28') {
+            debugger
+        }
+        let num = 1, max = 0, buy
+        let callback = function () {
+            let after = data[start + num]
+            if (!after)  return
+            let min = Math.min(after.c, after.o)
+            let flag = false
+            if (min > current.c && num < 20) {
+                if (num > 5) {
+                   flag = max < Math.max(after.o, after.c)
+                }
+                if (!flag) {
+                    num++
+                    max = Math.max(after.o, after.c, max)
+                    callback()
+                } else {
+                    buy = after
+                }
+            }
+        }
+        callback()
+        if (!buy) return
+
+        results.push([ code, current.d, buyDate(buy.d, 1), '神龙摆尾2' ]);
+        console.log(`${code}神龙摆尾2`,current.d, buyDate(buy.d, 1), `累计第 ${++count} 个`);
     },
     isSlbw3({ data, start, results, code }) {
         let datas = getModelLengthData(data, start, 4);
@@ -441,19 +492,24 @@ const all = {
     },
     isG8M1({ data, start, results, code }) {
         // 10\60
-        let ma60 = MA(getModelLengthData(data, start-59, 60), 60)
-        let ma10 = MA(getModelLengthData(data, start-9, 10), 10)
-        let bma60 = MA(getModelLengthData(data, start-1-59, 60), 60)
-        let bma10 = MA(getModelLengthData(data, start-1-9, 10), 10)
+        let slow = 60, fast = 10
+        let bma60 = MA(getModelLengthData(data, (start)-slow, slow), slow)
+        let bma10 = MA(getModelLengthData(data, (start)-fast, fast), fast)
+        let ma60 = MA(getModelLengthData(data, (start-1)-slow, slow), slow)
+        let ma10 = MA(getModelLengthData(data, (start-1)-fast, fast), fast)
+        let ama60 = MA(getModelLengthData(data, (start-2)-slow, slow), slow)
+        let ama10 = MA(getModelLengthData(data, (start-2)-fast, fast), fast)
         // 1. 快速、慢速 值相差幅度很小
-        if (Math.abs(ma60-ma10) > 0.1) return
+        if (!(Math.abs(ma60-ma10) <= 0.1)) return
         // 2. 慢速 在 快速 的下方
-        if (bma60 > bma10) return
-        // 3. 当前的阳线要上传慢速均线
-        let current = data[start]
+        if (!(ama60 > ama10)) return
+        // 3. 当天的阳线要上穿慢速均线
+        let current = data[start-1]
         if (YingYang(current) !== 2) return
-        if (current.c <= ma60) return
+        if (!(current.c > ma60)) return
         // 4. 形成
+        if (!(bma60 < bma10)) return
+        if (!((ama60 < ma60) && (ma60 < bma60))) return
         results.push([ code, current.d, buyDate(current.d, 1), '葛式八法-买1' ]);
         console.log(`${code}葛式八法-买1`,current.d, buyDate(current.d, 1), `累计第 ${++count} 个`);
     },
