@@ -289,37 +289,41 @@ app.put('/api/trade/update', (req, res) => {
         })
     });
 })
-app.post('/api/trade/add', (req, res) => {
-    let body  =  '';     
-    req.on('data',  (chunk) => {
-        body  +=  chunk;      
-    });
-    req.on('end',  () => {
-        let { code, name, buy_date, sale_date, stop_loss, buy, sale, is_sale, remark } = JSON.parse(body)
-        let keys = ''
-        let values = ''
-        // if (code) {
-        //     keys += 'code'
-        //     values += code
-        // }
-        let type = code.slice(0,3)
-        let values = `'${type}', '${code}', "${name}", '${buy_date}', '${sale_date}', ${stop_loss}, ${buy}, ${sale}, ${is_sale}, '${remark || ''}'`
-        let sql = `INSERT INTO trade(type, code, name, buy_date, sale_date, stop_loss, buy, sale, is_sale, remark) VALUES(${values})`
-        connection.query(sql, (err, result) => {
-            if (err) {
-                res.send({
-                    code: 400,
-                    message: err.message
-                })
-            } else {
-                res.send({
-                    code: 200,
-                    message: '新增成功'
-                })
-            }
-        })
-    });
-})
+// app.post('/api/trade/add', (req, res) => {
+//     let body  =  '';     
+//     req.on('data',  (chunk) => {
+//         body  +=  chunk;      
+//     });
+//     req.on('end',  () => {
+//         let json1 = JSON.parse(body)
+//         let keys = ''
+//         let values = ''
+//         Object.keys(json1).forEach(level1 => {
+//             keys += `${level1},`
+//             values += `${json1[level1]},`
+//         })
+//         // if (code) {
+//         //     keys += 'code'
+//         //     values += code
+//         // }
+//         let type = code.slice(0,3)
+//         let values = `'${type}', '${code}', "${name}", '${buy_date}', '${sale_date}', ${stop_loss}, ${buy}, ${sale}, ${is_sale}, '${remark || ''}'`
+//         let sql = `INSERT INTO trade(type, code, name, buy_date, sale_date, stop_loss, buy, sale, is_sale, remark) VALUES(${values})`
+//         connection.query(sql, (err, result) => {
+//             if (err) {
+//                 res.send({
+//                     code: 400,
+//                     message: err.message
+//                 })
+//             } else {
+//                 res.send({
+//                     code: 200,
+//                     message: '新增成功'
+//                 })
+//             }
+//         })
+//     });
+// })
 
 
 
