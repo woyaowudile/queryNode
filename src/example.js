@@ -48,7 +48,7 @@ global.example = {
     
 // 1. 设置跨域问题等
 var allowCrossDomain = function(req, res, next) {//设置response头部的中间件  
-    res.header('Access-Control-Allow-Origin', 'http://localhost:8000');//8089是vue项目的端口，这里相对于白名单  
+    res.header('Access-Control-Allow-Origin', 'http://localhost:8080');//8089是vue项目的端口，这里相对于白名单  
     res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE');  
     res.header('Access-Control-Allow-Headers', 'Content-Type');  
     res.header('Access-Control-Allow-Credentials','true');  
@@ -184,6 +184,150 @@ app.get('/api/write', (req, res) => {
     let query = req.query
     write(query.data, 'day')
 })
+
+
+
+app.post('/api/trade/echart/query', (req, res) => {
+    let body = ''
+    req.on('data',  (chunk) => {
+        body  +=  chunk;      
+    });
+    req.on('end',  () => {
+        let { code, date } = JSON.parse(body)
+        let type = code.slice(0,3)
+        let sql = `SELECT * FROM ig502_datas_${type} WHERE code=${code} and d >= '${date}'`
+        connection.query(sql, (err, result) => {
+            if (err) {
+                res.send({
+                    code: 400,
+                    message: err.message,
+                    data: []
+                })
+            } else {
+                res.send({
+                    code: 200,
+                    message: '查询数据成功',
+                    data: result
+                })
+            }
+        })
+    })
+})
+
+app.get('/api/trade/query', (req, res) => {
+    console.log('query');
+    let sql = `SELECT * FROM trade`
+    connection.query(sql, (err, result) => {
+        if (err) {
+            res.send({
+                code: 400,
+                message: err.message,
+                data: []
+            })
+        } else {
+            res.send({
+                code: 200,
+                message: '查询数据成功',
+                data: result
+            })
+        }
+    })
+})
+app.delete('/api/trade/delete', (req, res) => {
+    console.log('delete');
+    let sql = `DELETE FROM trade WHERE id = ${req.query.id}`
+    connection.query(sql, (err, result) => {
+        if (err) {
+            res.send({
+                code: 400,
+                message: err.message,
+                data: []
+            })
+        } else {
+            res.send({
+                code: 200,
+                message: '删除数据成功',
+                data: result
+            })
+        }
+    })
+    
+})
+app.put('/api/trade/update', (req, res) => {
+    let body  =  '';     
+    req.on('data',  (chunk) => {
+        body  +=  chunk;      
+    });
+    req.on('end',  () => {
+        let { id, code, name, buy_date, sale_date, stop_loss, buy, sale, is_sale, remark } = JSON.parse(body)
+        let type = code.slice(0,3)
+        let sql = `UPDATE trade SET
+            type = '${type}',
+            code = '${code}',
+            name = '${name}',
+            buy_date = '${buy_date}',
+            sale_date = '${sale_date}',
+            stop_loss = ${stop_loss},
+            buy = ${buy},
+            sale = ${sale},
+            is_sale = ${is_sale},
+            remark = '${remark || ''}'
+        WHERE id = ${id}
+        `
+        connection.query(sql, (err, result) => {
+            if (err) {
+                res.send({
+                    code: 400,
+                    message: err.message
+                })
+            } else {
+                res.send({
+                    code: 200,
+                    message: '编辑成功'
+                })
+            }
+        })
+    });
+})
+app.post('/api/trade/add', (req, res) => {
+    let body  =  '';     
+    req.on('data',  (chunk) => {
+        body  +=  chunk;      
+    });
+    req.on('end',  () => {
+        let { code, name, buy_date, sale_date, stop_loss, buy, sale, is_sale, remark } = JSON.parse(body)
+        let keys = ''
+        let values = ''
+        // if (code) {
+        //     keys += 'code'
+        //     values += code
+        // }
+        let type = code.slice(0,3)
+        let values = `'${type}', '${code}', "${name}", '${buy_date}', '${sale_date}', ${stop_loss}, ${buy}, ${sale}, ${is_sale}, '${remark || ''}'`
+        let sql = `INSERT INTO trade(type, code, name, buy_date, sale_date, stop_loss, buy, sale, is_sale, remark) VALUES(${values})`
+        connection.query(sql, (err, result) => {
+            if (err) {
+                res.send({
+                    code: 400,
+                    message: err.message
+                })
+            } else {
+                res.send({
+                    code: 200,
+                    message: '新增成功'
+                })
+            }
+        })
+    });
+})
+
+
+
+
+
+
+
+
 
 /**
  *  根据数据 搜索模型
@@ -343,13 +487,13 @@ function update(dwm) {
     
         let next = function () {
             if (count < 1) {
+                write(`${keys[index]}: over`, dwm)
                 if (--index >= 0) {
                     unusecodes = CODELIST[keys[index]].filter(level1 => codes.includes(level1))
                     count = unusecodes.length
                     next()
                 } else {
                     console.log('over');
-                    write(`${keys[index]}: over`, dwm)
                     reslove()
                 }
             } else {
@@ -389,13 +533,13 @@ function init() {
     let count = unusecodes.length
     let next = function () {
         if (count < 1) {
+            write(`${keys[index]}: over`, type[dwmType])
            if (--index >= 0) {
                 unusecodes = CODELIST[keys[index]].filter(level1 => !codes.includes(level1))
                 count = unusecodes.length
                 next()
            } else {
                console.log('over');
-               write(`${keys[index]}: over`, type[dwmType])
                return
            }
         } else {
