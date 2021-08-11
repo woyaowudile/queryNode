@@ -86,9 +86,9 @@ function handleDisconnection() {
             
             // // 2. 初始化
             nodeSchedule()
-            if (example.init) {
-                init()
-            }
+            // if (example.init) {
+            //     init()
+            // }
         }
     });
 
@@ -193,9 +193,12 @@ app.post('/api/trade/echart/query', (req, res) => {
         body  +=  chunk;      
     });
     req.on('end',  () => {
-        let { code, date } = JSON.parse(body)
+        let { code, buy_date, sale_date } = JSON.parse(body)
         let type = code.slice(0,3)
-        let sql = `SELECT * FROM ig502_datas_${type} WHERE code=${code} and d >= '${date}'`
+        let sql = `SELECT * FROM ig502_datas_${type} WHERE code=${code} and d >= '${buy_date}'`
+        if (sale_date) {
+            sql += ` and d <= '${sale_date}'`
+        }
         connection.query(sql, (err, result) => {
             if (err) {
                 res.send({
@@ -259,21 +262,17 @@ app.put('/api/trade/update', (req, res) => {
         body  +=  chunk;      
     });
     req.on('end',  () => {
-        let { id, code, name, buy_date, sale_date, stop_loss, buy, sale, is_sale, remark } = JSON.parse(body)
-        let type = code.slice(0,3)
-        let sql = `UPDATE trade SET
-            type = '${type}',
-            code = '${code}',
-            name = '${name}',
-            buy_date = '${buy_date}',
-            sale_date = '${sale_date}',
-            stop_loss = ${stop_loss},
-            buy = ${buy},
-            sale = ${sale},
-            is_sale = ${is_sale},
-            remark = '${remark || ''}'
-        WHERE id = ${id}
-        `
+        let json1 = JSON.parse(body)
+        let condition = ''
+        let arrs = ['stop_loss','buy','sale', 'num']
+        Object.keys(json1).forEach(level1 => {
+            if (level1 === 'id') return
+            condition += `${level1} = ` + (arrs.includes(level1) ? json1[level1] : `'${json1[level1]}'`) + ','
+        })
+        let type = json1['code'].slice(0,3)
+        condition += `type = '${type}'`
+
+        let sql = `UPDATE trade SET ${condition} WHERE id = ${json1.id}`
         connection.query(sql, (err, result) => {
             if (err) {
                 res.send({
@@ -289,41 +288,41 @@ app.put('/api/trade/update', (req, res) => {
         })
     });
 })
-// app.post('/api/trade/add', (req, res) => {
-//     let body  =  '';     
-//     req.on('data',  (chunk) => {
-//         body  +=  chunk;      
-//     });
-//     req.on('end',  () => {
-//         let json1 = JSON.parse(body)
-//         let keys = ''
-//         let values = ''
-//         Object.keys(json1).forEach(level1 => {
-//             keys += `${level1},`
-//             values += `${json1[level1]},`
-//         })
-//         // if (code) {
-//         //     keys += 'code'
-//         //     values += code
-//         // }
-//         let type = code.slice(0,3)
-//         let values = `'${type}', '${code}', "${name}", '${buy_date}', '${sale_date}', ${stop_loss}, ${buy}, ${sale}, ${is_sale}, '${remark || ''}'`
-//         let sql = `INSERT INTO trade(type, code, name, buy_date, sale_date, stop_loss, buy, sale, is_sale, remark) VALUES(${values})`
-//         connection.query(sql, (err, result) => {
-//             if (err) {
-//                 res.send({
-//                     code: 400,
-//                     message: err.message
-//                 })
-//             } else {
-//                 res.send({
-//                     code: 200,
-//                     message: '新增成功'
-//                 })
-//             }
-//         })
-//     });
-// })
+app.post('/api/trade/add', (req, res) => {
+    let body  =  '';     
+    req.on('data',  (chunk) => {
+        body  +=  chunk;      
+    });
+    req.on('end',  () => {
+        let json1 = JSON.parse(body)
+        let keys = ''
+        let values = ''
+        let arrs = ['stop_loss','buy','sale', 'num']
+        Object.keys(json1).forEach(level1 => {
+            keys += `${level1},`
+            values += (arrs.includes(level1) ? json1[level1] : `'${json1[level1]}'`) + ','
+        })
+        // 将 类别 添加进去
+        let type = json1['code'].slice(0,3)
+        keys += 'type'
+        values += `'${type}'`
+        // let values = `'${type}', '${code}', "${name}", '${buy_date}', '${sale_date}', ${stop_loss}, ${buy}, ${sale}, ${is_sale}, '${remark || ''}'`
+        let sql = `INSERT INTO trade(${keys}) VALUES(${values})`
+        connection.query(sql, (err, result) => {
+            if (err) {
+                res.send({
+                    code: 400,
+                    message: err.message
+                })
+            } else {
+                res.send({
+                    code: 200,
+                    message: '新增成功'
+                })
+            }
+        })
+    });
+})
 
 
 
@@ -538,14 +537,14 @@ function init() {
     let next = function () {
         if (count < 1) {
             write(`${keys[index]}: over`, type[dwmType])
-           if (--index >= 0) {
+            if (--index >= 0) {
                 unusecodes = CODELIST[keys[index]].filter(level1 => !codes.includes(level1))
                 count = unusecodes.length
                 next()
-           } else {
-               console.log('over');
-               return
-           }
+            } else {
+                console.log('over');
+                return
+            }
         } else {
             // 3. 开始递归 获取 -> 存储
             setTimeout( async () => {
@@ -704,7 +703,7 @@ function nodeSchedule() {
     // '* * * * * *' '秒分时日月周'
     // 例： 每日的12.30 -> '00 30 12 * * *'
     schdule.scheduleJob('00 30 16 * * *', () => {
-        connection.query('DELETE FROM ig502_today', async (err, result) => {
+        connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
             if (err) {
             } else {
                 await initQuery()
@@ -714,7 +713,7 @@ function nodeSchedule() {
     })
     schdule.scheduleJob('00 30 4 * * 6', () => {
         // 每周六 的4.30 更新
-        connection.query('DELETE FROM ig502_today', async (err, result) => {
+        connection.query(`DELETE FROM ig502_today WHERE type = 'week'`, async (err, result) => {
             if (err) {
             } else {
                 await initQuery()
@@ -724,7 +723,7 @@ function nodeSchedule() {
     })
     schdule.scheduleJob('00 30 1 1 * *', () => {
         // 每月 1 号的 1.30 更新
-        connection.query('DELETE FROM ig502_today', async (err, result) => {
+        connection.query(`DELETE FROM ig502_today WHERE type = 'month'`, async (err, result) => {
             if (err) {
             } else {
                 await initQuery()

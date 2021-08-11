@@ -199,7 +199,7 @@ const all = {
         if (YingYang(d2) !== 2) return;
         if (!(d1.c > d2.o)) return;
         // 怎么算小？怎么算大？答：相比较，越明显越好
-        if (!(entity(d1) < entity(d2))) return;
+        if (!((entity(d1) * 2) < entity(d2))) return;
         // 跳空低开
         if (!(d2.o < d1.c)) return
         // 3相对于2要低开高收
