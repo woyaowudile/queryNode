@@ -598,9 +598,9 @@ function getApi(code, type, dwm) {
                     code: 404
                 })
             }
-            else if (body.indexOf('503请求过于频繁') > -1 || body.indexOf('基础版访问间隔2秒') > -1) {
+            else if (['503请求过于频繁', '基础版访问间隔2秒', 'licence访问受限'].includes(body)) {
                 reslove({
-                    message: `${code}：503请求过于频繁`,
+                    message: `${code}：${body}`,
                     code: 503
                 })
             }

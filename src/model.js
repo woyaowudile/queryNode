@@ -466,10 +466,11 @@ const all = {
         if (!d1) return
         if (!(zdf([d1, d2]) > 9.7)) return
         if (YingYang(d3) !== 2) return
+        if (YingYang(d4) !== 2) return
         if (!(d3.v > d2.v)) return
         let zfz = zf([d2, d3])
         if (!(zfz > 4) && (zfz < 6)) return
-        if (YingYang(d4) !== 2) return
+        if (!(entity(d3) < entity(d4))) return;
         if (!(d4.v < d3.v)) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '神龙摆尾3' ]);
         console.log(`${code}神龙摆尾3`,d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
