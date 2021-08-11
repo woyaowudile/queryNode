@@ -128,10 +128,17 @@ app.get('/api/init',  async (req, res) => {
     init()
 })
 app.get('/api/update',  async (req, res) => {
+    let query = req.query
+    
+    let type = {
+        day: 'Day_qfq',
+        week: 'Week_qfq',
+        month: 'Month_qfq',
+    }[query.type || 'day']
     // 1. 将成功的 和 不存在 的code 都取出来
     await initQuery()
     
-    await update('Day_qfq')
+    await update(type)
 })
 
 app.get('/api/before/download',  async (req, res) => {
