@@ -161,6 +161,7 @@ app.get('/api/before/download',  async (req, res) => {
     let callback = async () => {
         if (count < 0) {
             download(stash.list, '汇总', {d: query.d})
+            res.send({ code: 200, message: '筛选完成' })
             return
         }
         let name = keys[count]
@@ -361,6 +362,7 @@ function getModelClick(datas = stash.list) {
     console.log('筛选结束');
 }
 function getModel(data, code) {
+    let qs = null
     let results = [];
     data.forEach((level1, start) => {
         // d1 不确定是阴、阳线时，就放在switch的外面

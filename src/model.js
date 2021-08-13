@@ -515,16 +515,26 @@ const all = {
         console.log(`${code}葛式八法-买1`,current.d, buyDate(current.d, 1), `累计第 ${++count} 个`);
     },
     // 测试用
-    testIsZTB({ data, start, results, code }) {
-        let datas = getModelLengthData(data, start - 4, 5);
+    testIsZTB({ data, start, results, code }, arrs) {
+        let datas = getModelLengthData(data, start, 30);
         let [d1] = datas
         if (!d1) return;
-        let [val] = datas.slice(-1)
-        let [result] = xiong(datas)
-        if (!result) return
-        debugger
-        if (!(val.c > result.o)) return
-        console.log(`${code}柳暗花明`, result.d, buyDate(val.d, 1), `累计第 ${++count} 个`);
+        datas.forEach(level1 => {
+            let { h, l } = level1
+            if (!arrs) {
+                arrs = { h: [h], l: [l] }
+            } else if (arrs.length > 3) {
+                if (h > arrs.h.slice(-1).h) {
+                    arrs.h.splice(0, 1).push(h)
+                }
+                if (l < arrs.l.slice(-1).l) {
+                    arrs.l.splice(0, 1).push(l)
+                } 
+            } else {
+                arrs.h.push(h)
+                arrs.l.push(l)
+            }
+        })
     }
 };
 
