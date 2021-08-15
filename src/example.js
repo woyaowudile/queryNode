@@ -130,6 +130,7 @@ app.get('/api/init',  async (req, res) => {
 app.get('/api/update',  async (req, res) => {
     let query = req.query
     
+    dwmType = query.type || 'day'
     let type = {
         day: 'Day_qfq',
         week: 'Week_qfq',
@@ -733,7 +734,7 @@ async function initQuery() {
     code404 = res1.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
     const res2 = await getConnectionDB('ig502_used', `SELECT code FROM ig502_used WHERE type1='${dwmType}'`)
     usedCodes = res2.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
-    const res3 = await getConnectionDB('ig502_today', 'SELECT code FROM ig502_today')
+    const res3 = await getConnectionDB('ig502_today', `SELECT code FROM ig502_today WHERE type='${dwmType}'`)
     todayCodes = res3.data.map(level1 => level1.code).map(level1 => (level1+'').padStart(6, 0))
     return new Promise((reslove, reject) => reslove())
 }
