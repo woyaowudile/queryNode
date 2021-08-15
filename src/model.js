@@ -12,7 +12,9 @@ function entity(data) {
     // 实体: (收-开)/开
     if (!data) return;
     let { o, c } = data;
-    return (((Math.abs(c - o)) / o).toFixed(2)) / 1;
+    let max = Math.max(o, c)
+    // 大实体：, 中实体：>0.0179-0.0310 ， 小实体：
+    return (((Math.abs(c - o)) / max).toFixed(4)) / 1;
 }
 function YingYang(data) {
     if (!data) return;
@@ -28,6 +30,13 @@ function YingYang(data) {
 }
 function lohc(d1, d2) {
     return d2.o < d1.c && d2.c > d1.c;
+}
+function zs (data, start, date, compare) {
+   let datas = getModelLengthData(data, start, date)
+   return datas.some(level1 => {
+       let {c, o, l} = level1
+       return l <= compare
+   })
 }
 function zdf(data) {
     // 大于 2% 中阴阳线
@@ -55,26 +64,20 @@ function zf(data) {
 function xiong(data) {
     let arr = []
     let max = {}
-    data.some(level1 => {
-        // 阴线，且 开盘价依次降低, 最高价依次降低
-        let flago = max.o ? max.o > level1.o : true
-        let flagh = max.h ? max.h > level1.h : true
-        if (YingYang(level1) === 1 && flago && flagh) {
-            max.o = level1.o
-            max.h = level1.h
-            arr.push(level1)
-        } else {
-            let [last] = data.slice(-1)
-            if(arr.length >= 3 && (level1.d === last.d)) {
-                return arr
-            }
-            max = {}
-            arr = []
-            return
-        }
-
+    data.forEach((level1, index1)=> {
+        // 连续3根阴线
+        let [d1, d2, d3] = [level1, data[index1+1], data[index1+2]]
+        if (!(d1 && d2 && d3)) return
+        if (YingYang(d1) !== 1) return
+        if (YingYang(d2) !== 1) return
+        if (YingYang(d3) !== 1) return
+        // 最佳条件, 依次最大，且最大是最小的3倍以上
+        // if (!(entity(d3) > entity(d2) > entity(d1))) return
+        // if (!(entity(d3) > entity(d1)*3)) return 
+        if (!((d3.o < d2.c) || (d2.o < d1.c))) return
+        arr = [d3]
     })
-    return arr.slice(-1)
+    return arr
 }
 function szx(data) {
     
@@ -85,7 +88,13 @@ function MA(data, n) {
     let count = before.map(level1 => level1.c).reduce((x, y) => x + y)
     return (count / n).toFixed(2) / 1
 }
-
+function slowUp(data, start) {
+    let slow = 60, fast = 10
+    let ama60 = MA(getModelLengthData(data, (start)-slow, slow), slow)
+    let ma60 = MA(getModelLengthData(data, (start-1)-slow, slow), slow)
+    let bma60 = MA(getModelLengthData(data, (start-2)-slow, slow), slow)
+    return bma60 <= ma60 && ma60 <=ama60
+}
 function qs(data, start, n, count = 10) {
 
     let maDatas = getModelLengthData(data, start-(n-1), n)
@@ -167,7 +176,78 @@ function qs(data, start, n, count = 10) {
     // }
     
 }
+function qs1(datas) {
+    let maxs = [], mins = [], status = 2, times = 1.0182, count = 0, pre = null
 
+    datas.forEach(level1 => {
+        let { c, o, h, l, d } = level1
+        if (d === '2021-01-14') {
+            debugger
+        }
+        let max = Math.max(c, o)
+        let min = Math.min(c, o)
+        if (!maxs.length) {
+            maxs.push({max, status, d})
+            mins.push({min, status, d})
+            pre = level1
+            return
+        }
+        let [last_max] = maxs.slice(-1)
+        let [last_min] = mins.slice(-1)
+        
+
+        let fn = function(current) {
+            let preMax = Math.max(pre.c, pre.o)
+            let preMin = Math.min(pre.c, pre.o)
+            let flag = true
+            if (status === 1 && (min < (preMin / times))) {
+                flag = false
+            }
+            if (max > (preMax * times) && flag) {
+                if (status !== 3) {
+                    maxs.push({max, status: 3, d})
+                } else {
+                    last_max.max = max
+                    last_max.d = d
+                }
+                count = 0
+                status = 3
+            }
+            else if (min < (preMin / times)) {
+                if (status !== 1) {
+                    mins.push({min, status: 1, d})
+                } else {
+                    last_min.min = min
+                    last_min.d = d
+                }
+                count = 0
+                status = 1
+            }
+            else if (count >= 5) {
+                status = 2
+                let average = (preMin + preMax) / 2
+                if (max > average) {
+                    maxs.push({status, d})
+                } else if (min < average) {
+                    mins.push({status, d})
+                }
+            }
+            else {
+                // 否则就是值差不多，继续横盘
+                count++
+            }
+            pre = current
+        }
+
+        fn(level1)
+        
+    })
+    return { maxs, mins }
+    // console.log(JSON.stringify(maxs), JSON.stringify(mins));
+}
+function hp(data) {
+
+}
 function buyDate(date, number) {
     let dd = new Date(date)
     dd.setDate(dd.getDate() + number)
@@ -191,7 +271,8 @@ function buyDate(date, number) {
 }
 
 const all = {
-    isKlyh({ data, start, results, code }) {
+    isKlyh({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         let [d1, d2, d3] = getModelLengthData(data, start, 3);
         if (!d1) return;
         if (YingYang(d3) !== 1) return;
@@ -208,7 +289,8 @@ const all = {
         results.push([ code, d1.d, buyDate(d3.d, 1), '亢龙有悔' ]);
         console.log(`${code}亢龙有悔`, d1.d, `累计第 ${++count} 个`);
     },
-    isYjsd({ data, start, results, code }) {
+    isYjsd({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         /**
          * 1阳 ；2、3阴；4阳
          * 2、3不能跌破1的实体
@@ -228,7 +310,8 @@ const all = {
         results.push([ code, d1.d, buyDate(d4.d, 1), '一箭双雕' ]);
         console.log(`${code}一箭双雕`, d1.d, `累计第 ${++count} 个`);
     },
-    isQx1({ data, start, results, code }) {
+    isQx1({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         // 七星中是否可以存在 十字星(即开盘价 === 收盘价)
         let datas = getModelLengthData(data, start, 7);
         let [d1, d2, d3, d4, d5, d6, d7] = datas
@@ -245,7 +328,8 @@ const all = {
         results.push([ code, d1.d, buyDate(d7.d, 1), '七星一' ]);
         console.log(`${code}七星一`, d1.d, `累计第 ${++count} 个`);
     },
-    isQx2({ data, start, results, code }) {
+    isQx2({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         // 七星中是否可以存在 十字星(即开盘价 === 收盘价)
         let [d1, d2, d3, d4, d5, d6, d7] = getModelLengthData(data, start, 7);
         if (!d1) return;
@@ -260,7 +344,8 @@ const all = {
         results.push([ code, d1.d, buyDate(d7.d, 1), '七星二' ]);
         console.log(`${code}七星二`, d1.d, `累计第 ${++count} 个`);
     },
-    isFkwz({ data, start, results, code }) {
+    isFkwz({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         let [d1, d2, d3] = getModelLengthData(data, start, 3);
         if (!d1) return;
         if (YingYang(d2) !== 1) return;
@@ -271,7 +356,8 @@ const all = {
         results.push([ code, d2.d, buyDate(d3.d, 1), '反客为主' ]);
         console.log(`${code}反客为主`, d2.d, `累计第 ${++count} 个`);
     },
-    isYydl({ data, start, results, code }) {
+    isYydl({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         // 因为d5后的某一天要是阳线，但不确定是哪一天
         let datas = getModelLengthData(data, start, 10);
         let [d1, d2, d3, d4, d5] = datas
@@ -291,7 +377,8 @@ const all = {
             }
         }
     },
-    isCsfr({ data, start, results, code }) {
+    isCsfr({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         let [d1, d2] = getModelLengthData(data, start, 2);
         if (!d1) return;
         if (YingYang(d1) !== 1) return;
@@ -301,7 +388,9 @@ const all = {
         results.push([ code, d1.d, buyDate(d2.d, 1), '出水芙蓉' ]);
         console.log(`${code}出水芙蓉`, d1.d, `累计第 ${++count} 个`);
     },
-    isGsdn({ data, start, results, code }) {
+    isGsdn({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
+        // 判断条件：慢速均线向上
         let [d1, d2, d3, d4, d5, d6] = getModelLengthData(data, start, 6);
         if (!d1) return;
         // 大于2%算是中阳线
@@ -310,13 +399,16 @@ const all = {
         if (!(d3.v > d2.v)) return;
         if (!(d4.c > d3.o && d5.c > d3.o && d6.c > d3.o)) return;
         if (!(d4.v < d3.v && d5.v < d3.v && d6.v < d3.v)) return;
+        if (!slowUp(data, start)) return
         // return [d2, d3, d4, d5];
         results.push([ code, d3.d, buyDate(d6.d, 1), '隔山打牛' ]);
         console.log(`${code}隔山打牛`, d3.d, `累计第 ${++count} 个`);
         // 1. 上升趋势中，
         // 2. 是阶段的顶点不可买，如果有缺口可以
     },
-    isDY({ data, start, results, code }) {
+    isDY({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
+        // 盈利： 17-20%
         let [d1, d2, d3, d4, d5, d6, d7] = getModelLengthData(data, start, 7);
         if (!d1) return;
         if (YingYang(d1) !== 1) return;
@@ -326,22 +418,39 @@ const all = {
         if (YingYang(d5) !== 2) return;
         if (YingYang(d6) !== 1) return;
         if (YingYang(d7) !== 2) return;
+        if (!(entity(d6) < 0.0236)) return
         if (!(d7.c > d2.c && d7.c > d3.c && d7.c > d4.c && d7.c > d5.c && d7.c > d6.o)) return;
         // return [d2, d3, d4, d5, d6, d7];
         results.push([ code, d2.d, buyDate(d7.d, 1), '大有' ]);
-        console.log(`${code}大有`, d2.d, `累计第 ${++count} 个`);
+        console.log(`${code}大有`, d2.d, buyDate(d7.d, 1), `累计第 ${++count} 个`);
     },
-    isLzyy({ data, start, results, code }) {
-        let [d1, d2, d3, d4] = getModelLengthData(data, start, 4);
+    isFhlz({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
+        // 盈利： 10%+
+        let [d1, d2, d3, d4] = getModelLengthData(data, start-1, 4);
+        if (!d1) return;
+        if (!(zdf([d1, d2]) > 9.7)) return;
+        if (!(d1.v < d2.v)) return
+        if (!(d3.c < d2.c)) return
+        if (!(d3.v < d2.v)) return
+        if (!(d4.c > d2.c)) return
+        results.push([ code, d2.d, buyDate(d4.d, 1), '峰回路转' ]);
+        console.log(`${code}峰回路转`, d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
+    },
+    isLzyy({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
+        let [d1, d2, d3, d4] = getModelLengthData(data, start-1, 4);
         if (!d1) return;
         if (!(zdf([d1, d2]) > 9.7)) return;
         if (YingYang(d3) !== 1) return
         if (YingYang(d4) !== 2) return
         if (!(d4.c > d3.o)) return
+        if (!((entity(d3) >= 0.03) || (zdf([d2, d3]) > 9.7))) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '龙战于野' ]);
-        console.log(`${code}龙战于野`, d2.d, `累计第 ${++count} 个`);
+        console.log(`${code}龙战于野`, d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
     },
-    isCBZ({ data, start, results, code }) {
+    isCBZ({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         let datas = getModelLengthData(data, start, 7);
         let [d1, d2] = datas
         if (!d1) return
@@ -356,27 +465,23 @@ const all = {
         results.push([ code, d1.d, buyDate(d2.d, 1), '窓璧轴' ]);
         console.log(`${code}窓璧轴`, d1.d, `累计第 ${++count} 个`);
     },
-    isFlzt({ data, start, results, code }) {
-        let datas = getModelLengthData(data, start, 4);
+    isFlzt({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
+        let datas = getModelLengthData(data, start-1, 4);
         let [d1, d2, d3, d4] = datas
         if (!d1) return
         if (!(zdf([d1, d2]) > 9.7)) return;
-        let sub =Math.abs( (d3.c - d3.o) / d3.o).toFixed(2)
-        if (sub >= 0.5) return
+        if (!(entity(d3) < 0.0179)) return
         if (!((d3.l > d2.h) && (d3.v > d2.v))) return
         if (YingYang(d4) !== 2) return
-        switch(YingYang(d3)) {
-            case 1:
-                if (!(d4.c > d3.o)) return
-                break;
-            case 2:
-                if (!(d4.c > d3.c)) return
-                break;
-        }
+        if (!(d4.v > d3.v)) return
+        let max = Math.min(d3.c, d3.o)
+        if (!(d4.c > max)) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '飞龙在天' ]);
-        console.log(`${code}飞龙在天`, d2.d, `累计第 ${++count} 个`);
+        console.log(`${code}飞龙在天`, d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
     },
-    isLahm({ data, start, results, code }) {
+    isLahm({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         let datas = getModelLengthData(data, start - 4, 5);
         let [d1] = datas
         if (!d1) return;
@@ -387,46 +492,41 @@ const all = {
         results.push([ code, val.d, buyDate(val.d, 1), '柳暗花明' ]);
         console.log(`${code}柳暗花明`, val.d, buyDate(val.d, 1), `累计第 ${++count} 个`);
     },
-    isSlbw0({ data, start, results, code }) {
+    isSlbw0({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         let datas = getModelLengthData(data, start, 4);
         let [d1, d2, d3, d4] = datas
         if (!d1) return
-        let body = entity(d2)
-        if (!(body < 0.035)) return
+        // 小实体
+        if (!((entity(d2) < 0.0179) && (entity(d2) <= entity(d3)))) return
         if (!(d3.l < d2.l)) return
         if (YingYang(d3) !== 1) return
         if (YingYang(d4) !== 2) return
-        if (!((d4.c > d3.c) && (d3.l < d4.l))) return
+        // 第三天yang的c > 第二天ying的o(的0.0115倍，防止差别过小) && ying的l < yang的l
+        if (!((d4.c > (d3.c * 1.0115)) && (d3.l < d4.l))) return
+        // 小实体之前要出现 xiong
+        // if (d2.d === '2016-09-30') {
+        //     debugger
+        // }
         let before = getModelLengthData(data, start - 9, 10);
         let flag = before.every(level1 => level1.l > d3.l)
         let [result] = xiong(before)
         if (!(result && flag)) return
+        // 止损, 小于第三天ying的l
+        if (zs(data, start+4, 10, d3.l)) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '神龙摆尾0' ]);
         console.log(`${code}神龙摆尾0`,d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
     },
-    isSlbw1({ data, start, results, code }) {
-        // let qsData = qs(data, start, 48, 12)
-        // if (!qsData) return
-        
-        // console.log(code, data[start].d);
-        // let afters = getModelLengthData(data, start, 30); // 一周以上，最少5天
-        // let last = data[start], flag = true
-        // let buy = afters.find((level1, index1) => {
-        //     let min = Math.min(level1.c, level1.o)
-        //     let max = Math.max(level1.c, level1.o)
-        //     if (min < last.c) flag = false 
-        //     if (!flag) return
-        //     if (index1 > 5 && max > last.o) {
-        //         let pre = data[index1 - 1].v
-        //         return level1.v > pre.v ? level1 : null
-        //     }
-        // })
-        // if (!buy) return
-        
-        // results.push([ code, last.d, buyDate(buy.d, 1), '神龙摆尾1' ]);
-        // console.log(`${code}神龙摆尾1`,last.d, buyDate(buy.d, 1), `累计第 ${++count} 个`);
+    isSlbw1({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
+    
+        let datas = getModelLengthData(data, start - 49, 51);
+        let [d1] = datas
+        if (!d1) return;
+        let { maxs, mins } = qs1(datas)
     },
-    isSlbw2({ data, start, results, code }) {
+    isSlbw2({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         let qsData = qs(data, start, 48, 12)
         if (!qsData) return
         
@@ -460,8 +560,9 @@ const all = {
         results.push([ code, current.d, buyDate(buy.d, 1), '神龙摆尾2' ]);
         console.log(`${code}神龙摆尾2`,current.d, buyDate(buy.d, 1), `累计第 ${++count} 个`);
     },
-    isSlbw3({ data, start, results, code }) {
-        let datas = getModelLengthData(data, start, 4);
+    isSlbw3({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
+        let datas = getModelLengthData(data, start-1, 4);
         let [d1, d2, d3, d4] = datas
         if (!d1) return
         if (!(zdf([d1, d2]) > 9.7)) return
@@ -470,12 +571,13 @@ const all = {
         if (!(d3.v > d2.v)) return
         let zfz = zf([d2, d3])
         if (!(zfz > 4) && (zfz < 6)) return
-        if (!(entity(d3) < entity(d4))) return;
+        if (!((entity(d3) > entity(d4)) && (entity(d4) < 0.0179))) return;
         if (!(d4.v < d3.v)) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '神龙摆尾3' ]);
         console.log(`${code}神龙摆尾3`,d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
     },
-    isSlbw4({ data, start, results, code }) {
+    isSlbw4({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
         let datas = getModelLengthData(data, start, 12);
         let [d1, d2] = datas
         if (!d1) return
@@ -491,7 +593,8 @@ const all = {
         results.push([ code, d2.d, buyDate(find.d, 1), '神龙摆尾4' ]);
         console.log(`${code}神龙摆尾4`,d2.d, buyDate(find.d, 1), `累计第 ${++count} 个`);
     },
-    isG8M1({ data, start, results, code }) {
+    isG8M1({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'week') return
         // 10\60
         let slow = 60, fast = 10
         let bma60 = MA(getModelLengthData(data, (start)-slow, slow), slow)
@@ -515,26 +618,8 @@ const all = {
         console.log(`${code}葛式八法-买1`,current.d, buyDate(current.d, 1), `累计第 ${++count} 个`);
     },
     // 测试用
-    testIsZTB({ data, start, results, code }, arrs) {
-        let datas = getModelLengthData(data, start, 30);
-        let [d1] = datas
-        if (!d1) return;
-        datas.forEach(level1 => {
-            let { h, l } = level1
-            if (!arrs) {
-                arrs = { h: [h], l: [l] }
-            } else if (arrs.length > 3) {
-                if (h > arrs.h.slice(-1).h) {
-                    arrs.h.splice(0, 1).push(h)
-                }
-                if (l < arrs.l.slice(-1).l) {
-                    arrs.l.splice(0, 1).push(l)
-                } 
-            } else {
-                arrs.h.push(h)
-                arrs.l.push(l)
-            }
-        })
+    testIsZTB({ data, start, results, code, dwmType }, arrs) {
+        if (dwmType !== 'day') return
     }
 };
 

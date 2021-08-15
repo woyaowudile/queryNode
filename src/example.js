@@ -148,9 +148,8 @@ app.get('/api/before/download',  async (req, res) => {
     await initQuery()
     /**
      * type: 'day | week | month'
-     * query: {
-     *      d: 'today' 或者 3(指定天数，比如3天前) 
-     * }
+     * d: 'today' 或者 3(指定天数，比如3天前)
+     * size: 10. 分段所有的code， 例如 每10个一组调接口 
      * today： 会将模型只筛选出 当天为买入的。
      *      否则不筛选，是数据的全部(多少取决于天数 )，
      *      且按model导出excel
@@ -158,9 +157,11 @@ app.get('/api/before/download',  async (req, res) => {
      */
     let keys = Object.keys(CODELIST)
     let count = keys.length - 1
+    stash.list = []
+    stash.results = {}
     let callback = async () => {
         if (count < 0) {
-            download(stash.list, '汇总', {d: query.d})
+            const result = await download(null, '汇总', query)
             res.send({ code: 200, message: '筛选完成' })
             return
         }
@@ -180,12 +181,8 @@ app.get('/api/download',  async (req, res) => {
      * }
      */
     let query = req.query
-    const result = await download(stash.list, '汇总', query)
+    const result = await download(null, '汇总', query)
     res.download(result)
-})
-
-app.get('/api/testmodel',  async (req, res) => {
-    getModelClick()
 })
 
 app.get('/api/write', (req, res) => {
@@ -344,7 +341,7 @@ app.post('/api/trade/add', (req, res) => {
  *  根据数据 搜索模型
  */
 
-function getModelClick(datas = stash.list) {
+function getModelClick(datas) {
     console.log('开始筛选');
     let results = {}
     datas.forEach(level2 => {
@@ -366,25 +363,30 @@ function getModel(data, code) {
     let results = [];
     data.forEach((level1, start) => {
         // d1 不确定是阴、阳线时，就放在switch的外面
-        let params = { data, start, results, code };
-        modelJs.isSlbw0(params);
-        modelJs.isSlbw3(params);
-        modelJs.isSlbw4(params);
-        // // modelJs.isCBZ(params);
-        // modelJs.isLzyy(params);
-        // // modelJs.isFkwz(params);
-        // modelJs.isFlzt(params);
-        // modelJs.isG8M1(params);
+        let params = { data, start, results, code, dwmType };
+        modelJs.isSlbw0(params); // ok
+        // modelJs.isSlbw4(params);
+        // modelJs.isCBZ(params);
+        // modelJs.isFkwz(params);
+        modelJs.isG8M1(params);
         switch (modelJs.YingYang(level1)) {
             case 1:
                 // modelJs.isQx1(params);
                 // modelJs.isQx2(params);
-                // // modelJs.isCsfr(params);
-                // modelJs.isDY(params);
+                // modelJs.isCsfr(params);
+                modelJs.isDY(params); // ok
                 break;
             case 2:
+                // if (level1.d === '2021-03-11') {
+                //     debugger
+                // }
                 if (start > 50 && modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
-                    modelJs.isSlbw2(params)
+                    // modelJs.isSlbw2(params)
+                    modelJs.isSlbw3(params); // ok
+                    modelJs.isLzyy(params); // ok
+                    modelJs.isFhlz(params); // ok
+                    modelJs.isFlzt(params); // ok
+                    // modelJs.testIsZTB(params)
                 }
                 // modelJs.isLahm(params);
                 // modelJs.isYjsd(params);
@@ -395,7 +397,11 @@ function getModel(data, code) {
                 break;
         }
     });
-    stash.results[code] = results
+    if (!stash.results[code]) {
+        stash.results[code] = results
+    } else {
+        stash.results[code].push(results)
+    }
 }
 /********************************************* */
 
@@ -403,35 +409,56 @@ function getModel(data, code) {
  *  下载准备前后
  */
 function beforeDownload(query, type) {
-    
-    // 批量查询，一个select创建一个sql连接，影响性能
-    // let strs = usedCodes.join(',')
-    let strs = CODELIST[type].join(',')
-    // let strs = createCodes(600000, 600009).join(',')
-    let sql = `select * from ${type} where code in (${strs}) and type='${dwmType}'`
-    // 今天 之前的 几天， 例如 query.d = 7就是一周前，今天是7-23的7天前是7-16
-    if (query.d) {
-        // 7天前处理成 '2021-7-16' 
-        let days = someDay(query.d / 1) 
-        // 查询某个时间段的值 (注意d是字符串类型)
-        sql += `and d >= '${days}'`
-    }
-    console.log(`开始查询 ${type}`);
     return new Promise((reslove, reject) => {
-        connection.query(sql, (err, results) => {
-            if (err) {
-                console.log(`查询${type}失败:`, err.message);
-                reject(`查询${type}失败:`, err.message)
+            
+        // 批量查询，一个select创建一个sql连接，影响性能
+        // let strs = usedCodes.join(',')
+        let current = query.size || 10
+        let len = Math.ceil(CODELIST[type].length / current)
+        // let arr = new Array(len).fill(1)
+        let getSql = function (sql, type) {
+            return new Promise((reslove, reject) => {
+                connection.query(sql, (err, results) => {
+                    if (err) {
+                        console.log(`查询${type}失败:`, err.message);
+                        reject(`查询${type}失败:`, err.message)
+                    }
+                    
+                    console.log(`${type} 共 ${ results.length } 条, 写入stsh 完成`);
+                    
+                    getModelClick(results)
+                    reslove(`${type} 共 ${ results.length } 条, 写入stsh 完成`)
+                })
+            })
+        }
+        let fn = async function () {
+            if (--len < 0) {
+                return reslove({code: 200, message: '查询完毕'})
             }
-            stash.list = stash.list.concat(results)
-            console.log(`${type} 共 ${ results.length } 条, 写入stsh 完成`);
-            reslove(`${type} 共 ${ results.length } 条, 写入stsh 完成`)
-        })
+            let strs = CODELIST[type].slice(len * current, (len+1)*current).join(',')
+            // let strs = CODELIST[type].join(',')
+            // let strs = createCodes(600000, 600009).join(',')
+            let sql = `select * from ${type} where code in (${strs}) and type='${dwmType}'`
+            // 今天 之前的 几天， 例如 query.d = 7就是一周前，今天是7-23的7天前是7-16
+            if (query.d) {
+                // 7天前处理成 '2021-7-16' 
+                let days = someDay(query.d / 1) 
+                // 查询某个时间段的值 (注意d是字符串类型)
+                sql += `and d >= '${days}'`
+            }
+            await getSql(sql, type)
+            fn()
+            console.log(`开始查询 ${type} -- ${len}`);
+            
+        }
+        fn()
     })
 }
 function download(results, type, {d='all', flag = false} = {}) {
     return new Promise((reslove, reject) => {
-        getModelClick(results)
+        if (results) {
+            getModelClick(results)
+        }
         console.log('准备写入');
         let now = new Date().toLocaleDateString()
         let header = [ 'code', 'date', 'buyDate', 'type' ]
@@ -458,7 +485,7 @@ function download(results, type, {d='all', flag = false} = {}) {
         Object.keys(obj).forEach(level1 => {
             let datas = obj[level1].filter(level2 => {
                 if (d === 'today') {
-                    return level2[2] === now
+                   return new Date(level2[2]).getTime() >= new Date(now).getTime()
                 } else {
                     return true
                 }
@@ -471,6 +498,10 @@ function download(results, type, {d='all', flag = false} = {}) {
                 ]
             })
         })
+        if (!lists.length) {
+            console.log('未筛选出任何模型');
+            return
+        }
         const buffer = nodeExcel.build(lists);// list 的格式也需要跟上述格式一致
         console.log('开始写入');
         let date = new Date().toLocaleDateString().replace(/\//g, '')
