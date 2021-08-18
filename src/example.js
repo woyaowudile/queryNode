@@ -94,7 +94,7 @@ function handleDisconnection() {
 
     connection.on('error', function(err) {
         console.error('db error', err);
-        if(err.code === 'PROTOCOL_CONNECTION_LOST') {
+        if(err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
             console.error('db error执行重连:'+err.message);
             handleDisconnection();
         } else {
