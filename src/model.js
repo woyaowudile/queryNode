@@ -3,8 +3,7 @@ let count = 0
 
 function getModelLengthData(data, start = 0, leng = 1) {
     // 如果数量不满足模型，则退出
-    let maxLength = start + leng;
-    if (maxLength > data.length) return [];
+    let maxLength = (start + leng) > data.length ? data.length-1 : start + leng;
     let results = data.slice(start, maxLength);
     return results;
 }
@@ -176,77 +175,42 @@ function qs(data, start, n, count = 10) {
     // }
     
 }
-function qs1(datas) {
-    let maxs = [], mins = [], status = 2, times = 1.0182, count = 0, pre = null
-
-    datas.forEach(level1 => {
-        let { c, o, h, l, d } = level1
-        if (d === '2021-01-14') {
-            debugger
+function hp(data, start, cycle) {
+        let scale = 1.045
+        let datas = getModelLengthData(data, start - (cycle - 1), cycle + 1);
+        let [d1] = datas
+        if (!d1) return
+        let index = 0, startIndex = 0, arr = []
+        while((startIndex + index + 5) < datas.length) {
+            startIndex += index
+            let avrage = Math.abs(datas[index].c-datas[index].o) / 2
+            let base = Math.min(datas[index].c, datas[index].o) + avrage
+            let pre = {
+                max: base * scale,
+                min: base / scale
+            }
+            datas.slice(startIndex, datas.length - 1).forEach((level1, index1) => {
+                let { c, o, h, l } = level1
+                
+                if (h > pre.min && l < pre.max) {
+                    index = index1
+                }
+            })
+            let max = datas.slice(startIndex, (startIndex + index + 1)).map(level1 => Math.max(level1.c, level1.o))
+            let min = datas.slice(startIndex, (startIndex + index + 1)).map(level1 => Math.min(level1.c, level1.o))
+            arr.push({ max, min, count: index++ })
         }
-        let max = Math.max(c, o)
-        let min = Math.min(c, o)
-        if (!maxs.length) {
-            maxs.push({max, status, d})
-            mins.push({min, status, d})
-            pre = level1
-            return
-        }
-        let [last_max] = maxs.slice(-1)
-        let [last_min] = mins.slice(-1)
         
-
-        let fn = function(current) {
-            let preMax = Math.max(pre.c, pre.o)
-            let preMin = Math.min(pre.c, pre.o)
-            let flag = true
-            if (status === 1 && (min < (preMin / times))) {
-                flag = false
+        let [last, last2] = arr
+        if (last.count > 22) {
+            if (!last2) {
+                return true
+            } else {
+                let max2 = [...last2.max]
+                let max = [...last.max]
+                return max2 >= max
             }
-            if (max > (preMax * times) && flag) {
-                if (status !== 3) {
-                    maxs.push({max, status: 3, d})
-                } else {
-                    last_max.max = max
-                    last_max.d = d
-                }
-                count = 0
-                status = 3
-            }
-            else if (min < (preMin / times)) {
-                if (status !== 1) {
-                    mins.push({min, status: 1, d})
-                } else {
-                    last_min.min = min
-                    last_min.d = d
-                }
-                count = 0
-                status = 1
-            }
-            else if (count >= 5) {
-                status = 2
-                let average = (preMin + preMax) / 2
-                if (max > average) {
-                    maxs.push({status, d})
-                } else if (min < average) {
-                    mins.push({status, d})
-                }
-            }
-            else {
-                // 否则就是值差不多，继续横盘
-                count++
-            }
-            pre = current
         }
-
-        fn(level1)
-        
-    })
-    return { maxs, mins }
-    // console.log(JSON.stringify(maxs), JSON.stringify(mins));
-}
-function hp(data) {
-
 }
 function buyDate(date, number) {
     let dd = new Date(date)
@@ -523,7 +487,38 @@ const all = {
         let datas = getModelLengthData(data, start - 49, 51);
         let [d1] = datas
         if (!d1) return;
-        let { maxs, mins } = qs1(datas)
+        // 下跌后横盘
+        let flag = hp(data, start, 60)
+        if (!flag) return
+        // 
+        let current = data[start]
+        let afters = getModelLengthData(data, start+1, 22);
+        // 不跌破涨停板开盘价
+        let stop_loss = afters.every(level1 => {
+            let { c, o } = level1
+            let min = Math.min(c, o)
+            return min >= current.o
+        })
+        if (!stop_loss) return
+        // 5日后某天回到箱体内
+        let index = afters.findIndex((level1, index1) => {
+            let { c, o } = level1
+            let max = Math.max(c, o)
+            if (index1 >= 5) {
+                return current.c > max
+            }
+        })
+        if (index < 0) return
+        // 之后某日突破涨停板的收盘价, 且放量
+        let buy = afters.find((level1, index1) => {
+            if (index > index1) return
+            let pre = afters[index1 - 1]
+            return (level1.c > current.c) && (pre.v < level1.v)
+        })
+        if (!buy) return
+        
+        results.push([ code, current.d, buyDate(buy.d, 1), '神龙摆尾1' ]);
+        console.log(`${code}神龙摆尾1`,current.d, buyDate(buy.d, 1), `累计第 ${++count} 个`);
     },
     isSlbw2({ data, start, results, code, dwmType }) {
         if (dwmType !== 'day') return
@@ -619,7 +614,41 @@ const all = {
     },
     // 测试用
     testIsZTB({ data, start, results, code, dwmType }, arrs) {
-        if (dwmType !== 'day') return
+        let scale = 1.045
+        let datas = getModelLengthData(data, start- 59, 61);
+        let [d1] = datas
+        if (!d1) return
+        let index = 0, startIndex = 0, arr = []
+        while((startIndex + index + 5) < datas.length) {
+            startIndex += index
+            let avrage = Math.abs(datas[index].c-datas[index].o) / 2
+            let base = Math.min(datas[index].c, datas[index].o) + avrage
+            let pre = {
+                max: base * scale,
+                min: base / scale
+            }
+            datas.slice(startIndex, datas.length - 1).forEach((level1, index1) => {
+                let { c, o, h, l } = level1
+                
+                if (h > pre.min && l < pre.max) {
+                    index = index1
+                }
+            })
+            let max = datas.slice(startIndex, (startIndex + index + 1)).map(level1 => Math.max(level1.c, level1.o))
+            let min = datas.slice(startIndex, (startIndex + index + 1)).map(level1 => Math.min(level1.c, level1.o))
+            arr.push({ max, min, count: index++ })
+        }
+        
+        let [last, last2] = arr
+        if (last.count > 22) {
+            if (!last2) {
+                return true
+            } else {
+                let max2 = [...last2.max]
+                let max = [...last.max]
+                return max2 >= max
+            }
+        }
     }
 };
 

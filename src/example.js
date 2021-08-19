@@ -369,7 +369,7 @@ function getModel(data, code) {
         // modelJs.isSlbw4(params);
         // modelJs.isCBZ(params);
         // modelJs.isFkwz(params);
-        modelJs.isG8M1(params);
+        // modelJs.isG8M1(params);
         switch (modelJs.YingYang(level1)) {
             case 1:
                 // modelJs.isQx1(params);
@@ -378,10 +378,11 @@ function getModel(data, code) {
                 modelJs.isDY(params); // ok
                 break;
             case 2:
-                // if (level1.d === '2021-03-11') {
-                //     debugger
-                // }
-                if (start > 50 && modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
+                if (level1.d === '2021-03-12') {
+                    debugger
+                }
+                if (start > 60 && modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
+                    modelJs.isSlbw1(params) // ok
                     // modelJs.isSlbw2(params)
                     modelJs.isSlbw3(params); // ok
                     modelJs.isLzyy(params); // ok
