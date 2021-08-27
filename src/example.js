@@ -552,8 +552,8 @@ function update(dwm) {
                     console.log(`${code}：${res1.code}`);
                     if (res1.code === 200) {
                         // 3.2 将数据写入数据库
-                        const res2 = await getConnection(code, addSql(code, '[' + res1.message + ']', 'ig502_today'))
-                        const res3 = await getConnection(code, addSql(code, '[' + res1.message + ']', keys[index]))
+                        const res2 = await getConnection(code, addSql(code, '[' + res1.message + ']', 'ig502_today', dwm), dwm)
+                        const res3 = await getConnection(code, addSql(code, '[' + res1.message + ']', keys[index], dwm), dwm)
                         console.log(res3, keys[index]);
                     }
                     next()
@@ -601,12 +601,12 @@ function init(dwm) {
                 if (res1.code === 200) {
                     // 3.1 将成功的code存储
                     let sql = `INSERT INTO ig502_used(code, type, type1) VALUES(${code}, ${name.split('_')[2]}, '${dwm}')`
-                    await getConnection(code, sql)
+                    await getConnection(code, sql, dwm)
                     // 3.2 将数据写入数据库
-                    await getConnection(code, addSql(code, res1.message, name))
+                    await getConnection(code, addSql(code, res1.message, name, dwm), dwm)
                 } else if (res1.code === 404) {
                     let sql = `INSERT INTO ig502_404(code, type) VALUES(${code}, '${dwm}')`
-                    await getConnection(code, sql)
+                    await getConnection(code, sql, dwm)
                 }
                 next()
             }, 2500);
@@ -667,12 +667,12 @@ function getConnectionDB(code, sql) {
         })
     })
 }
-function getConnection(code, sql) {
+function getConnection(code, sql, dwm) {
     return new Promise((reslove, reject) => {
         connection.query(sql, (err, result) => {
             if (err) {
                 failCodes.push(code)
-                connection.query(`DELETE  FROM ig502_used WHERE code=${code} and type1='${dwmType}'`)
+                connection.query(`DELETE  FROM ig502_used WHERE code=${code} and type1='${dwm}'`)
                 debugger
                 console.log(`${code}: ${err.message}`);
                 reslove(`${code}: 写入失败`)
@@ -683,12 +683,12 @@ function getConnection(code, sql) {
     })
 }
 
-function addSql(code, body, name) {
+function addSql(code, body, name, dwm) {
     let json1 = JSON.parse(body)
     let add = `INSERT INTO ${name}(code,o,c,h,l,d,v,type) VALUES`
     let str = json1.map(level1 => {
         let { o,c,h,l,d,v } = level1
-        return `(${code}, ${o}, ${c}, ${h}, ${l}, '${d}', ${v}, '${dwmType}')`
+        return `(${code}, ${o}, ${c}, ${h}, ${l}, '${d}', ${v}, '${dwm}')`
     })
     add += str.join(',')
     return add
