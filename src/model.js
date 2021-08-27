@@ -258,11 +258,11 @@ function buyDate(date, number) {
             dd.setDate(dd.getDate() + number + 1)
             break;
     }
-    let y = dd.getFullYear();   
-    let m = dd.getMonth()+1
-    let d = dd.getDate()
+    let y = dd.getFullYear() + '';   
+    let m = dd.getMonth()+1 + ''
+    let d = dd.getDate() + ''
     
-    return y+"-"+m+"-"+d;   
+    return (y.padStart(4, 0))+"-"+(m).padStart(2, 0)+"-"+(d.padStart(2, 0));   
 }
 
 const all = {
