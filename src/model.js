@@ -5,7 +5,7 @@ function getModelLengthData(data, start = 0, leng = 1) {
     // 如果数量不满足模型，则退出
     let maxLength = (start + leng) > data.length ? data.length-1 : start + leng;
     let results = data.slice(start, maxLength);
-    return results;
+    return results.length === leng ? results : [] ;
 }
 function entity(data) {
     // 实体: (收-开)/开
@@ -87,12 +87,37 @@ function MA(data, n) {
     let count = before.map(level1 => level1.c).reduce((x, y) => x + y)
     return (count / n).toFixed(2) / 1
 }
+function JC(data, start, slow, fast) {
+    let bma60 = MA(getModelLengthData(data, (start)-slow, slow), slow)
+    let bma10 = MA(getModelLengthData(data, (start)-fast, fast), fast)
+    let ma60 = MA(getModelLengthData(data, (start-1)-slow, slow), slow)
+    let ma10 = MA(getModelLengthData(data, (start-1)-fast, fast), fast)
+    let ama60 = MA(getModelLengthData(data, (start-2)-slow, slow), slow)
+    let ama10 = MA(getModelLengthData(data, (start-2)-fast, fast), fast)
+    
+    // 金
+    if ((ama60 < ama10) && (bma60 > bma10)) {
+        return 3
+    } 
+    else if ((bma10 > bma60) && (ama60 > ama10)) {
+        return 1
+    }
+}
 function slowUp(data, start) {
+    // 向上
     let slow = 60, fast = 10
     let ama60 = MA(getModelLengthData(data, (start)-slow, slow), slow)
     let ma60 = MA(getModelLengthData(data, (start-1)-slow, slow), slow)
     let bma60 = MA(getModelLengthData(data, (start-2)-slow, slow), slow)
     return bma60 <= ma60 && ma60 <=ama60
+}
+function slowDown(data, start) {
+    // 向下
+    let slow = 60, fast = 10
+    let ama60 = MA(getModelLengthData(data, (start)-slow, slow), slow)
+    let ma60 = MA(getModelLengthData(data, (start-1)-slow, slow), slow)
+    let bma60 = MA(getModelLengthData(data, (start-2)-slow, slow), slow)
+    return (bma60 > ma60) && (ma60 > ama60)
 }
 function qs(data, start, n, count = 10) {
 
@@ -175,42 +200,48 @@ function qs(data, start, n, count = 10) {
     // }
     
 }
-function hp(data, start, cycle) {
+function hp(data, start, cycle, callback) {
         let scale = 1.045
-        let datas = getModelLengthData(data, start - (cycle - 1), cycle + 1);
+        let datas = getModelLengthData(data, start - cycle, cycle);
         let [d1] = datas
         if (!d1) return
         let index = 0, startIndex = 0, arr = []
         while((startIndex + index + 5) < datas.length) {
             startIndex += index
-            let avrage = Math.abs(datas[index].c-datas[index].o) / 2
-            let base = Math.min(datas[index].c, datas[index].o) + avrage
+            let avrage = Math.abs(datas[startIndex].c-datas[startIndex].o) / 2
+            let base = Math.min(datas[startIndex].c, datas[startIndex].o) + avrage
             let pre = {
+                date: datas[startIndex].d,
                 max: base * scale,
                 min: base / scale
             }
             datas.slice(startIndex, datas.length - 1).forEach((level1, index1) => {
-                let { c, o, h, l } = level1
-                
+                let { c, o, h, l, d } = level1
                 if (h > pre.min && l < pre.max) {
                     index = index1
                 }
             })
             let max = datas.slice(startIndex, (startIndex + index + 1)).map(level1 => Math.max(level1.c, level1.o))
             let min = datas.slice(startIndex, (startIndex + index + 1)).map(level1 => Math.min(level1.c, level1.o))
-            arr.push({ max, min, count: index++ })
+            let date = datas.slice(startIndex, (startIndex + index + 1)).map(level1 => level1.d)
+            arr.push({ max, min, date, count: index++ })
         }
-        
-        let [last, last2] = arr
-        if (last.count > 22) {
-            if (!last2) {
-                return true
-            } else {
+        let flag = false
+        let [last2] = arr.slice(arr.length -2, -1)
+        let [last] = arr.slice(-1)
+        if (arr.length === 1) {
+            flag = true
+        } else {
+            if (last.count > 22) {
                 let max2 = [...last2.max]
                 let max = [...last.max]
-                return max2 >= max
+                flag = max2 >= max
             }
         }
+        if (callback && flag) {
+            flag = callback(arr, datas)
+        }
+        return flag
 }
 function buyDate(date, number) {
     let dd = new Date(date)
@@ -237,20 +268,25 @@ function buyDate(date, number) {
 const all = {
     isKlyh({ data, start, results, code, dwmType }) {
         if (dwmType !== 'day') return
-        let [d1, d2, d3] = getModelLengthData(data, start, 3);
+        let [d1, d2, d3, d4] = getModelLengthData(data, start, 4);
         if (!d1) return;
+        if (YingYang(d4) !== 2) return;
+        if (YingYang(d1) !== 1) return;
+        if (YingYang(d2) !== 1) return;
         if (YingYang(d3) !== 1) return;
-        if (YingYang(d1) !== 2) return;
-        if (YingYang(d2) !== 2) return;
-        if (!(d1.c > d2.o)) return;
+        if (!(d2.c > d3.o)) return;
         // 怎么算小？怎么算大？答：相比较，越明显越好
-        if (!((entity(d1) * 2) < entity(d2))) return;
+        if (!(entity(d2) * 1.5) < entity(d3)) return;
         // 跳空低开
-        if (!(d2.o < d1.c)) return
+        if (!(d3.o < d2.c)) return
         // 3相对于2要低开高收
-        if (!lohc(d2, d3)) return;
-        // return [d1, d2, d3];
-        results.push([ code, d1.d, buyDate(d3.d, 1), '亢龙有悔' ]);
+        if (!(lohc(d3, d4) && (d4.c < d3.o))) return;
+        
+        // let datas = getModelLengthData(data, start, 15);
+        // let [result] = xiong(datas)
+        // if (!result) return
+        // return [d2, d3, d4];
+        results.push([ code, d1.d, buyDate(d4.d, 1), '亢龙有悔' ]);
         console.log(`${code}亢龙有悔`, d1.d, `累计第 ${++count} 个`);
     },
     isYjsd({ data, start, results, code, dwmType }) {
@@ -287,7 +323,7 @@ const all = {
         if (YingYang(d5) !== 2) return;
         if (YingYang(d6) !== 1) return;
         if (YingYang(d7) !== 2) return;
-
+        if (!slowDown(data, start)) return
         // return [d1, d2, d3, d4, d5, d6, d7];
         results.push([ code, d1.d, buyDate(d7.d, 1), '七星一' ]);
         console.log(`${code}七星一`, d1.d, `累计第 ${++count} 个`);
@@ -305,6 +341,7 @@ const all = {
         if (YingYang(d6) !== 1) return;
         if (YingYang(d7) !== 2) return;
         // return [d1, d2, d3, d4, d5, d6, d7];
+        if (!slowDown(data, start)) return
         results.push([ code, d1.d, buyDate(d7.d, 1), '七星二' ]);
         console.log(`${code}七星二`, d1.d, `累计第 ${++count} 个`);
     },
@@ -317,6 +354,7 @@ const all = {
         if (!((zdf([d1, d2]) > 2) && (zdf([d2, d3]) > 2))) return
         if (!((d3.o > d2.c) && (d3.c > d2.o))) return;
         // return true;
+        if (!slowUp(data, start)) return
         results.push([ code, d2.d, buyDate(d3.d, 1), '反客为主' ]);
         console.log(`${code}反客为主`, d2.d, `累计第 ${++count} 个`);
     },
@@ -482,16 +520,24 @@ const all = {
         console.log(`${code}神龙摆尾0`,d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
     },
     isSlbw1({ data, start, results, code, dwmType }) {
+        // 20%
         if (dwmType !== 'day') return
     
         let datas = getModelLengthData(data, start - 49, 51);
         let [d1] = datas
         if (!d1) return;
+        let current = data[start]
         // 下跌后横盘
-        let flag = hp(data, start, 60)
+        let flag = hp(data, start, 60, (arr, ds) => {
+            return ds.every((level1, index1) => {
+                if (index1 > 0 && level1.d !== current.d) {
+                    return zdf([ds[index1-1], ds[index1]]) < 9.7
+                }
+                return true
+            })
+        })
         if (!flag) return
         // 
-        let current = data[start]
         let afters = getModelLengthData(data, start+1, 22);
         // 不跌破涨停板开盘价
         let stop_loss = afters.every(level1 => {
@@ -501,17 +547,18 @@ const all = {
         })
         if (!stop_loss) return
         // 5日后某天回到箱体内
-        let index = afters.findIndex((level1, index1) => {
+        let index = afters.every((level1, index1) => {
             let { c, o } = level1
             let max = Math.max(c, o)
-            if (index1 >= 5) {
+            if (index1 <= 7) {
                 return current.c > max
             }
+            return true
         })
-        if (index < 0) return
+        if (!index) return
         // 之后某日突破涨停板的收盘价, 且放量
         let buy = afters.find((level1, index1) => {
-            if (index > index1) return
+            if (YingYang(level1) !== 2) return
             let pre = afters[index1 - 1]
             return (level1.c > current.c) && (pre.v < level1.v)
         })
@@ -591,24 +638,12 @@ const all = {
     isG8M1({ data, start, results, code, dwmType }) {
         if (dwmType !== 'week') return
         // 10\60
-        let slow = 60, fast = 10
-        let bma60 = MA(getModelLengthData(data, (start)-slow, slow), slow)
-        let bma10 = MA(getModelLengthData(data, (start)-fast, fast), fast)
-        let ma60 = MA(getModelLengthData(data, (start-1)-slow, slow), slow)
-        let ma10 = MA(getModelLengthData(data, (start-1)-fast, fast), fast)
-        let ama60 = MA(getModelLengthData(data, (start-2)-slow, slow), slow)
-        let ama10 = MA(getModelLengthData(data, (start-2)-fast, fast), fast)
-        // 1. 快速、慢速 值相差幅度很小
-        if (!(Math.abs(ma60-ma10) <= 0.1)) return
-        // 2. 慢速 在 快速 的下方
-        if (!(ama60 > ama10)) return
-        // 3. 当天的阳线要上穿慢速均线
+        let qs = JC(60, 10)
+        if (qs !== 3) return
+        // 4. 当天的阳线要上穿慢速均线
         let current = data[start-1]
         if (YingYang(current) !== 2) return
         if (!(current.c > ma60)) return
-        // 4. 形成
-        if (!(bma60 < bma10)) return
-        if (!((ama60 < ma60) && (ma60 < bma60))) return
         results.push([ code, current.d, buyDate(current.d, 1), '葛式八法-买1' ]);
         console.log(`${code}葛式八法-买1`,current.d, buyDate(current.d, 1), `累计第 ${++count} 个`);
     },
