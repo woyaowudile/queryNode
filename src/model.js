@@ -5,7 +5,7 @@ function getModelLengthData(data, start = 0, leng = 1) {
     // 如果数量不满足模型，则退出
     let maxLength = (start + leng) > data.length ? data.length-1 : start + leng;
     let results = data.slice(start, maxLength);
-    return results.length === leng ? results : [] ;
+    return results ;
 }
 function entity(data) {
     // 实体: (收-开)/开
@@ -229,7 +229,7 @@ function hp(data, start, cycle, callback) {
         let flag = false
         let [last2] = arr.slice(arr.length -2, -1)
         let [last] = arr.slice(-1)
-        if (arr.length === 1) {
+        if (arr.length <= 1) {
             flag = true
         } else {
             if (last.count > 22) {
@@ -238,7 +238,7 @@ function hp(data, start, cycle, callback) {
                 flag = max2 >= max
             }
         }
-        if (callback && flag) {
+        if (callback) {
             flag = callback(arr, datas)
         }
         return flag
@@ -646,6 +646,65 @@ const all = {
         if (!(current.c > ma60)) return
         results.push([ code, current.d, buyDate(current.d, 1), '葛式八法-买1' ]);
         console.log(`${code}葛式八法-买1`,current.d, buyDate(current.d, 1), `累计第 ${++count} 个`);
+    },
+    isyylm({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'month') return
+        // 下跌要2年左右
+        let datas = getModelLengthData(data, start, 24);
+        let [d1] = datas
+        if (!d1) return
+        let bMax = Math.max(d1.c, d1.o), aMax = Math.max(d1.c, d1.o)
+        let bMin = Math.min(d1.c, d1.o), aMin = Math.min(d1.c, d1.o)
+        datas.forEach((level1, index1) => {
+            let { c, o } = level1
+            let max = Math.max(c, o)
+            let min = Math.min(c, o)
+            aMax = Math.max(aMax, max)
+            aMin = Math.min(aMin, min)
+            if (index1 <= 12) {
+                // 下跌的最低价，用于和后面横盘最低价比较。确保横盘的价在这个价格的下面
+                bMin = Math.min(bMin, min)
+            }
+        })
+        if (!(bMax >= aMax)) return
+        // 最大值和最小值要相差2倍以上
+        if (!(bMax > (aMin * 2))) return
+        
+        if (d1.d === '2017-01-26' && code === '600292') {
+            debugger
+        }
+        // 筑底横盘,(从高点下跌到确认筑底结束，给个大概3年多的时间)
+        let time = 0
+        let flag = new Array(60-40).fill(1).some((level1, index1) => {
+            time = 24 + index1
+            let hpDatas = getModelLengthData(data, start+12, time);
+            let everys = hpDatas.every(level2 => {
+                return (bMin*1.3) > Math.min(level2.c, level2.o)
+            })
+            let isHp = hp(hpDatas, hpDatas.length, hpDatas.length, (arr) => {
+                if (!arr[arr.length-1]) {
+                    return 
+                }
+                return arr[arr.length-1].count >= 12
+            })
+            return everys && isHp
+        })
+        if (!flag) return
+        let [cy] = d1.d.split('-')
+        let ok = results.every(level1 => {
+            let [a1, a2, a3, a4] = level1
+            if (a1 === code && a4 === '鱼跃龙门') {
+                let [year] = a2.split('-')
+                return (year/1 + 2) < cy/1
+            } else {
+                return true
+            }
+        })
+        if (!ok) return
+        // 不好判断日期，就写当天
+        let date = new Date().toLocaleDateString()
+        results.push([ code, d1.d, buyDate(date, 1), '鱼跃龙门' ]);
+        console.log(`${code}鱼跃龙门`,d1.d, buyDate(date, 1), time,`累计第 ${++count} 个`);
     },
     // 测试用
     testIsZTB({ data, start, results, code, dwmType }, arrs) {

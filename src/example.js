@@ -18,15 +18,15 @@ const CODE000 = createCodes('000001', '000999');
 // 002中小板\300创业板
 const CODE002 = createCodes('002000', '002999');
 // 沪市
-const CODE600 = createCodes(600000, 600999);
+const CODE600 = createCodes(600039, 600295);
 const CODE601 = createCodes(601000, 601999);
 const CODE603 = createCodes(603000, 603999);
 const CODELIST = {
-    'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
-    'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
-    'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
-    'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
+    // 'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
 };
 
 let dwmType = 'day'
@@ -365,7 +365,7 @@ function getModel(data, code, dwmType) {
         }
         // d1 不确定是阴、阳线时，就放在switch的外面
         let params = { data, start, results, code, dwmType };
-        // if(data[start].d === '2021-08-19') {
+        // if(data[start].d === '2017-08-31') {
         //     debugger
         // }
         // modelJs.isSlbw0(params); // ok
@@ -373,6 +373,7 @@ function getModel(data, code, dwmType) {
         // modelJs.isCBZ(params);
         // modelJs.isFkwz(params);
         // modelJs.isG8M1(params);
+        modelJs.isyylm(params);
         switch (modelJs.YingYang(level1)) {
             case 1:
                 // modelJs.isKlyh(params);
