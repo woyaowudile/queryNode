@@ -1,11 +1,11 @@
 
 let count = 0
 
-function getModelLengthData(data, start = 0, leng = 1) {
+function getModelLengthData(data, start = 0, leng = 1, flag) {
     // 如果数量不满足模型，则退出
     let maxLength = (start + leng) > data.length ? data.length-1 : start + leng;
     let results = data.slice(start, maxLength);
-    return results ;
+    return !flag ? (results.length === leng ? results : []) : results;
 }
 function entity(data) {
     // 实体: (收-开)/开
@@ -351,7 +351,8 @@ const all = {
         if (!d1) return;
         if (YingYang(d2) !== 1) return;
         if (YingYang(d3) !== 2) return;
-        if (!((zdf([d1, d2]) > 2) && (zdf([d2, d3]) > 2))) return
+        if (!(entity(d2) >= 0.02)) return
+        // if (!((zdf([d1, d2]) > 2) && (zdf([d2, d3]) > 2))) return
         if (!((d3.o > d2.c) && (d3.c > d2.o))) return;
         // return true;
         if (!slowUp(data, start)) return
@@ -366,11 +367,11 @@ const all = {
         if (!d1) return;
         if (YingYang(d1) !== 2) return;
         if (YingYang(d2) !== 1) return;
-        if (d1.v < d2.v) return;
+        if (d1.v/1 < d2.v/1) return;
         if (YingYang(d3) !== 1) return;
-        if (d2.v < d3.v || d2.h < d3.h || d2.l < d3.l) return;
+        if (d2.v/1 < d3.v/1 || d2.h < d3.h || d2.l < d3.l) return;
         if (YingYang(d4) !== 1) return;
-        if (d3.v < d4.v || d3.h < d4.h || d3.l < d4.l) return;
+        if (d3.v/1 < d4.v/1 || d3.h < d4.h || d3.l < d4.l) return;
         if (YingYang(d5) !== 2) return;
         for (let i = 5; i < datas.length; i++) {
             if (YingYang(datas[i]) === 2 && (datas[i].c > d5.c)) {
@@ -398,9 +399,9 @@ const all = {
         // 大于2%算是中阳线
         if (YingYang(d3) !== 2) return
         if (!((zdf([d2, d3]) > zdf([d1, d2])) && zdf([d2, d3]) >= 2)) return;
-        if (!(d3.v > d2.v)) return;
+        if (!(d3.v/1 > d2.v/1)) return;
         if (!(d4.c > d3.o && d5.c > d3.o && d6.c > d3.o)) return;
-        if (!(d4.v < d3.v && d5.v < d3.v && d6.v < d3.v)) return;
+        if (!(d4.v/1 < d3.v/1 && d5.v/1 < d3.v/1 && d6.v/1 < d3.v/1)) return;
         if (!slowUp(data, start)) return
         // return [d2, d3, d4, d5];
         results.push([ code, d3.d, buyDate(d6.d, 1), '隔山打牛' ]);
@@ -432,9 +433,9 @@ const all = {
         let [d1, d2, d3, d4] = getModelLengthData(data, start-1, 4);
         if (!d1) return;
         if (!(zdf([d1, d2]) > 9.7)) return;
-        if (!(d1.v < d2.v)) return
+        if (!(d1.v/1 < d2.v/1)) return
         if (!(d3.c < d2.c)) return
-        if (!(d3.v < d2.v)) return
+        if (!(d3.v/1 < d2.v/1)) return
         if (!(d4.c > d2.c)) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '峰回路转' ]);
         console.log(`${code}峰回路转`, d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
@@ -474,9 +475,9 @@ const all = {
         if (!d1) return
         if (!(zdf([d1, d2]) > 9.7)) return;
         if (!(entity(d3) < 0.0179)) return
-        if (!((d3.l > d2.h) && (d3.v > d2.v))) return
+        if (!((d3.l > d2.h) && (d3.v/1 > d2.v/1))) return
         if (YingYang(d4) !== 2) return
-        if (!(d4.v > d3.v)) return
+        if (!(d4.v/1 > d3.v/1)) return
         let max = Math.min(d3.c, d3.o)
         if (!(d4.c > max)) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '飞龙在天' ]);
@@ -560,7 +561,7 @@ const all = {
         let buy = afters.find((level1, index1) => {
             if (YingYang(level1) !== 2) return
             let pre = afters[index1 - 1]
-            return (level1.c > current.c) && (pre.v < level1.v)
+            return (level1.c > current.c) && (pre.v/1 < level1.v/1)
         })
         if (!buy) return
         
@@ -610,11 +611,11 @@ const all = {
         if (!(zdf([d1, d2]) > 9.7)) return
         if (YingYang(d3) !== 2) return
         if (YingYang(d4) !== 2) return
-        if (!(d3.v > d2.v)) return
+        if (!(d3.v/1 > d2.v/1)) return
         let zfz = zf([d2, d3])
         if (!(zfz > 4) && (zfz < 6)) return
         if (!((entity(d3) > entity(d4)) && (entity(d4) < 0.0179))) return;
-        if (!(d4.v < d3.v)) return
+        if (!(d4.v/1 < d3.v/1)) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '神龙摆尾3' ]);
         console.log(`${code}神龙摆尾3`,d2.d, buyDate(d4.d, 1), `累计第 ${++count} 个`);
     },
@@ -624,16 +625,29 @@ const all = {
         let [d1, d2] = datas
         if (!d1) return
         if (YingYang(d2) !== 2) return
-        if (!((d2.h > d1.h) && (d2.v > d1.v))) return
+        if (!((d2.h > d1.h) && (d2.v/1 > d1.v/1))) return
         let zfz = zf([d1, d2])
         if (!(zfz > 4) && (zfz < 6)) return
         let find = datas.slice(-10).find(level1 => {
             if (YingYang(level1) !== 2) return
-            return level1.h > d2.h && level1.v > d2.v
+            return level1.h > d2.h && level1.v/1 > d2.v/1
         })
         if (!find) return
         results.push([ code, d2.d, buyDate(find.d, 1), '神龙摆尾4' ]);
         console.log(`${code}神龙摆尾4`,d2.d, buyDate(find.d, 1), `累计第 ${++count} 个`);
+    },
+    isSlqs({ data, start, results, code, dwmType }) {
+        if (dwmType !== 'day') return
+        let datas = getModelLengthData(data, start-1, 3);
+        let [d1, d2, d3] = datas
+        if (!d1) return
+        if (!(zdf([d1, d2]) > 9.7)) return
+        if (!(d1.v/1 < d2.v/1)) return
+        if (!(zdf([d2, d3]) > 9.7)) return
+        if (!(d3.v/1 < d2.v/1)) return
+        results.push([ code, d2.d, buyDate(d3.d, 1), '双龙取水' ]);
+        console.log(`${code}双龙取水`,d2.d, buyDate(d3.d, 1), `累计第 ${++count} 个`);
+
     },
     isG8M1({ data, start, results, code, dwmType }) {
         if (dwmType !== 'week') return
@@ -670,14 +684,11 @@ const all = {
         // 最大值和最小值要相差2倍以上
         if (!(bMax > (aMin * 2))) return
         
-        if (d1.d === '2017-01-26' && code === '600292') {
-            debugger
-        }
         // 筑底横盘,(从高点下跌到确认筑底结束，给个大概3年多的时间)
         let time = 0
         let flag = new Array(60-40).fill(1).some((level1, index1) => {
             time = 24 + index1
-            let hpDatas = getModelLengthData(data, start+12, time);
+            let hpDatas = getModelLengthData(data, start+12, time, true);
             let everys = hpDatas.every(level2 => {
                 return (bMin*1.3) > Math.min(level2.c, level2.o)
             })

@@ -18,15 +18,15 @@ const CODE000 = createCodes('000001', '000999');
 // 002中小板\300创业板
 const CODE002 = createCodes('002000', '002999');
 // 沪市
-const CODE600 = createCodes(600039, 600295);
+const CODE600 = createCodes(600000, 600999);
 const CODE601 = createCodes(601000, 601999);
 const CODE603 = createCodes(603000, 603999);
 const CODELIST = {
-    // 'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
+    'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
 };
 
 let dwmType = 'day'
@@ -129,15 +129,10 @@ app.get('/api/init',  async (req, res) => {
 app.get('/api/update',  async (req, res) => {
     let query = req.query
 
-    let type = {
-        day: 'Day_qfq',
-        week: 'Week_qfq',
-        month: 'Month_qfq',
-    }[query.type || 'day']
     // 1. 将成功的 和 不存在 的code 都取出来
     await initQuery(query.type)
     
-    await update(type)
+    await update(query.type)
 })
 
 app.get('/api/before/download',  async (req, res) => {
@@ -368,10 +363,11 @@ function getModel(data, code, dwmType) {
         // if(data[start].d === '2017-08-31') {
         //     debugger
         // }
+        modelJs.isSlqs(params) // ok
         // modelJs.isSlbw0(params); // ok
         // modelJs.isSlbw4(params);
         // modelJs.isCBZ(params);
-        // modelJs.isFkwz(params);
+        modelJs.isFkwz(params);
         // modelJs.isG8M1(params);
         modelJs.isyylm(params);
         switch (modelJs.YingYang(level1)) {
@@ -386,14 +382,14 @@ function getModel(data, code, dwmType) {
                 if (start > 60 && modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
                     // modelJs.isSlbw1(params) // ok
                     // modelJs.isSlbw2(params)
-                    // modelJs.isSlbw3(params); // ok
+                    modelJs.isSlbw3(params); // ok
                     // modelJs.isLzyy(params); // ok
-                    // modelJs.isFhlz(params); // ok
-                    // modelJs.isFlzt(params); // ok
+                    modelJs.isFhlz(params); // ok
+                    modelJs.isFlzt(params); // ok
                     // modelJs.testIsZTB(params)
                 }
                 // modelJs.isLahm(params);
-                modelJs.isYjsd(params);
+                modelJs.isYjsd(params); // ok
                 // modelJs.isYydl(params);
                 // modelJs.isGsdn(params);
                 break;
@@ -519,7 +515,12 @@ function download(results, modelName, {d='all', flag = false, type='day'} = {}) 
 }
 /* ******************************************** */
 
-function update(dwm) {
+function update(dwm = 'day') {
+    let type = {
+        day: 'Day_qfq',
+        week: 'Week_qfq',
+        month: 'Month_qfq',
+    }[dwm]
    return new Promise((reslove, reject) => {
         let codes = usedCodes.filter(level1 => !todayCodes.includes(level1))
         //    let objs = {
@@ -533,7 +534,6 @@ function update(dwm) {
         let count = unusecodes.length
     
         let next = function () {
-            debugger
             if (count < 1) {
                 write(`${keys[index]}: over`, dwm)
                 if (--index >= 0) {
@@ -549,7 +549,7 @@ function update(dwm) {
                 setTimeout( async () => {
                     let code = unusecodes[--count]
                     console.log(code, '---', new Date().toLocaleString());
-                    const res1 = await getApi(code, 'real/time', dwm)
+                    const res1 = await getApi(code, 'real/time', type)
                     console.log(`${code}：${res1.code}`);
                     if (res1.code === 200) {
                         // 3.2 将数据写入数据库
@@ -747,22 +747,22 @@ async function initQuery(dwm = 'day') {
 function nodeSchedule() {
     // '* * * * * *' '秒分时日月周'
     // 例： 每日的12.30 -> '00 30 12 * * *'
-    // schdule.scheduleJob('00 30 16 * * *', () => {
-    //     connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
-    //         if (err) {
-    //         } else {
-    //             await initQuery('day')
-    //             update('Day_qfq')
-    //         }
-    //     })
-    // })
+    schdule.scheduleJob('00 30 16 * * *', () => {
+        connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
+            if (err) {
+            } else {
+                await initQuery('day')
+                update('day')
+            }
+        })
+    })
     // schdule.scheduleJob('00 30 4 * * 6', () => {
     //     // 每周六 的4.30 更新
     //     connection.query(`DELETE FROM ig502_today WHERE type = 'week'`, async (err, result) => {
     //         if (err) {
     //         } else {
     //             await initQuery('week')
-    //             update('Week_qfq')
+    //             update('week')
     //         }
     //     })
     // })
@@ -772,7 +772,7 @@ function nodeSchedule() {
     //         if (err) {
     //         } else {
     //             await initQuery('month')
-    //             update('Month_qfq')
+    //             update('month')
     //         }
     //     })
     // })
