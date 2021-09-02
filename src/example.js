@@ -22,8 +22,8 @@ const CODE600 = createCodes(600000, 600999);
 const CODE601 = createCodes(601000, 601999);
 const CODE603 = createCodes(603000, 603999);
 const CODELIST = {
-    // 'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
@@ -747,15 +747,15 @@ async function initQuery(dwm = 'day') {
 function nodeSchedule() {
     // '* * * * * *' '秒分时日月周'
     // 例： 每日的12.30 -> '00 30 12 * * *'
-    // schdule.scheduleJob('00 30 16 * * *', () => {
-    //     connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
-    //         if (err) {
-    //         } else {
-    //             await initQuery('day')
-    //             update('day')
-    //         }
-    //     })
-    // })
+    schdule.scheduleJob('00 30 16 * * *', () => {
+        connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
+            if (err) {
+            } else {
+                await initQuery('day')
+                update('day')
+            }
+        })
+    })
     // schdule.scheduleJob('00 30 4 * * 6', () => {
     //     // 每周六 的4.30 更新
     //     connection.query(`DELETE FROM ig502_today WHERE type = 'week'`, async (err, result) => {
