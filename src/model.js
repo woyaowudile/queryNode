@@ -373,12 +373,14 @@ const all = {
         if (YingYang(d4) !== 1) return;
         if (d3.v/1 < d4.v/1 || d3.h < d4.h || d3.l < d4.l) return;
         if (YingYang(d5) !== 2) return;
-        for (let i = 5; i < datas.length; i++) {
-            if (YingYang(datas[i]) === 2 && (datas[i].c > d5.c)) {
-                results.push([ code, d1.d, buyDate(d5.d, 1), '以逸待劳' ]);
-                console.log(`${code}以逸待劳`, d1.d, `累计第 ${++count} 个`);
+        let find = datas.find((level1, index1) => {
+            if (index1 >= 5) {
+                return YingYang(level1) === 2 && (level1.c > d5.c)
             }
-        }
+        })
+        if (!find) return
+        results.push([ code, d1.d, buyDate(find.d, 1), '以逸待劳' ]);
+        console.log(`${code}以逸待劳`, d1.d, `累计第 ${++count} 个`);
     },
     isCsfr({ data, start, results, code, dwmType }) {
         if (dwmType !== 'day') return
@@ -477,7 +479,7 @@ const all = {
         if (!(entity(d3) < 0.0179)) return
         if (!((d3.l > d2.h) && (d3.v/1 > d2.v/1))) return
         if (YingYang(d4) !== 2) return
-        if (!(d4.v/1 > d3.v/1)) return
+        // if (!(d4.v/1 > d3.v/1)) return
         let max = Math.min(d3.c, d3.o)
         if (!(d4.c > max)) return
         results.push([ code, d2.d, buyDate(d4.d, 1), '飞龙在天' ]);
