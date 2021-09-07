@@ -747,15 +747,15 @@ async function initQuery(dwm = 'day') {
 function nodeSchedule() {
     // '* * * * * *' '秒分时日月周'
     // 例： 每日的12.30 -> '00 30 12 * * *'
-    schdule.scheduleJob('00 30 16 * * *', () => {
-        connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
-            if (err) {
-            } else {
-                await initQuery('day')
-                update('day')
-            }
-        })
-    })
+    // schdule.scheduleJob('00 30 16 * * *', () => {
+    //     connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
+    //         if (err) {
+    //         } else {
+    //             await initQuery('day')
+    //             update('day')
+    //         }
+    //     })
+    // })
     // schdule.scheduleJob('00 30 4 * * 6', () => {
     //     // 每周六 的4.30 更新
     //     connection.query(`DELETE FROM ig502_today WHERE type = 'week'`, async (err, result) => {
