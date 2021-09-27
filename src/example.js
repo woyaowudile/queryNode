@@ -633,14 +633,18 @@ function getApi(code, type, dwm) {
             method:'GET',
             headers:{'Content-Type':'text/json' }
         }, (error,response,body) => {
+            console.log('调用接口成功');
             // 调完接口后，有可能就报错了，发个邮件通知一下
             timeId = setTimeout(() => {
+                console.log('开始发送邮件');
                 email.sendMail('已经三分钟了，任务好像失败了呢')
             }, 3 * 1000 * 60)
             if (error) {
+                console.log(`${code}：error`);
                 reject(`${code}：error`)
             }
             if (!body) {
+                console.log(`${code} body is undefined !!!`);
                 reject(`${code} body is undefined !!!`)
             }
             if (body.indexOf('404无资源') > -1) {
