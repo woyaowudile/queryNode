@@ -265,6 +265,37 @@ function buyDate(date, number) {
     return (y.padStart(4, 0))+"-"+(m).padStart(2, 0)+"-"+(d.padStart(2, 0));   
 }
 
+function resultForEcharts({data, start, day, stop_loss, times = 1.1}) {
+    // 截取之后的日期，减少不必要的循环
+    /**
+     *  1. 止损 失败
+     *  2. 还在等待中
+     *  3. 成功
+     */
+    let status, datas = data.slice(start, data.length)
+    datas.find(level1 => {
+        let { d, o, c } = level1
+        let min = Math.min(o, c)
+        let max = Math.max(o, c)
+        let now = +new Date(d)
+        let buyDay = +new Date(day.d) + (1 * 24 * 3600 * 1000)
+        if (now > buyDay) {
+            // 两个日期相差的天数
+            let sub = (now - buyDay) / 1000 / 3600 / 24
+            if (min < stop_loss) {
+                status = `1:失败:${d}:${buyDay}:${sub}`
+                return true
+            }
+            else if (max > (day.o * times)) {
+                status = `3:成功:${d}:${buyDay}:${sub}`
+                return true
+            }
+        }
+    })
+    return status || '2:等待中'
+}
+
+
 const all = {
     isKlyh({ data, start, results, code, dwmType }) {
         if (dwmType !== 'day') return
@@ -307,7 +338,8 @@ const all = {
         // 4的收盘价要比前3个都高
         if (!(d4.c > d3.o && d4.c > d2.o && d4.c > d1.c)) return;
         // return [d1, d2, d3, d4];
-        results.push([ code, d1.d, buyDate(d4.d, 1), '一箭双雕' ]);
+        let result = resultForEcharts({ data, start, day: d4, stop_loss: d1.o })
+        results.push([ code, d1.d, buyDate(d4.d, 1), '一箭双雕', result ]);
         console.log(`${code}一箭双雕`, d1.d, `累计第 ${++count} 个`);
     },
     isQx1({ data, start, results, code, dwmType }) {

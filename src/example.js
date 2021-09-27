@@ -2,6 +2,7 @@
 const request = require('request')
 const express = require('express')
 const schdule = require('node-schedule')
+const email = require('./sendEmail')
 
 const nodeExcel = require('node-xlsx');
 const fs = require('fs');
@@ -20,12 +21,12 @@ const CODE002 = createCodes('002000', '002999');
 // 沪市
 const CODE600 = createCodes(600000, 600999);
 const CODE601 = createCodes(601000, 601999);
-const CODE603 = createCodes(603000, 603999);
+const CODE603 = createCodes(603000, 603100);
 const CODELIST = {
-    'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
-    'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
-    'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
-    'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
+    // 'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
 };
 
@@ -116,7 +117,9 @@ handleDisconnection()
 // let query = 'SELECT name FROM gundam WHERE name="rx782"'
 
 // 3. 调用接口
-app.get('/api/getfile',  async (req, res) => {
+app.get('/api/sendmail',  async (req, res) => {
+    let { html } = req.query
+    email.sendMail(html)
 })
 
 app.get('/api/init',  async (req, res) => {
@@ -363,35 +366,35 @@ function getModel(data, code, dwmType) {
         // if(data[start].d === '2017-08-31') {
         //     debugger
         // }
-        modelJs.isSlqs(params) // ok
-        modelJs.isSlbw0(params); // ok
-        // modelJs.isSlbw4(params);
-        // modelJs.isCBZ(params);
-        modelJs.isFkwz(params);
-        // modelJs.isG8M1(params);
-        modelJs.isyylm(params); // ok
+        // modelJs.isSlqs(params) // ok
+        // modelJs.isSlbw0(params); // ok
+        // // modelJs.isSlbw4(params);
+        // // modelJs.isCBZ(params);
+        // modelJs.isFkwz(params);
+        // // modelJs.isG8M1(params);
+        // modelJs.isyylm(params); // ok
         switch (modelJs.YingYang(level1)) {
             case 1:
                 // modelJs.isKlyh(params);
                 // modelJs.isQx1(params);
                 // modelJs.isQx2(params);
                 // modelJs.isCsfr(params);
-                modelJs.isDY(params); // ok
+                // modelJs.isDY(params); // ok
                 break;
             case 2:
-                if (start > 60 && modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
-                    modelJs.isSlbw1(params) // ok
-                    // modelJs.isSlbw2(params)
-                    modelJs.isSlbw3(params); // ok
-                    modelJs.isLzyy(params); // ok
-                    modelJs.isFhlz(params); // ok
-                    modelJs.isFlzt(params); // ok
-                    // modelJs.testIsZTB(params)
-                }
-                // modelJs.isLahm(params);
+                // if (start > 60 && modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
+                //     modelJs.isSlbw1(params) // ok
+                //     // modelJs.isSlbw2(params)
+                //     modelJs.isSlbw3(params); // ok
+                //     modelJs.isLzyy(params); // ok
+                //     modelJs.isFhlz(params); // ok
+                //     modelJs.isFlzt(params); // ok
+                //     // modelJs.testIsZTB(params)
+                // }
+                // // modelJs.isLahm(params);
                 modelJs.isYjsd(params); // ok
-                modelJs.isYydl(params); // ok
-                modelJs.isGsdn(params);
+                // modelJs.isYydl(params); // ok
+                // modelJs.isGsdn(params);
                 break;
             default:
                 break;
@@ -461,7 +464,7 @@ function download(results, modelName, {d='all', flag = false, type='day'} = {}) 
         }
         console.log('准备写入');
         let now = new Date().toLocaleDateString()
-        let header = [ 'code', 'date', 'buyDate', 'type' ]
+        let header = [ 'code', 'date', 'buyDate', 'type', 'success' ]
         let lists = [], obj = {}, model = 'model'
         if (flag) {
             model = 'code'
@@ -541,6 +544,7 @@ function update(dwm = 'day') {
                     count = unusecodes.length
                     next()
                 } else {
+                    email.sendMail(`update：${dwm} 成功！`)
                     console.log('over');
                     reslove()
                 }
@@ -587,6 +591,7 @@ function init(dwm) {
                 count = unusecodes.length
                 next()
             } else {
+                email.sendMail(`init：${dwm} 成功！`)
                 console.log('over');
                 return
             }
@@ -596,20 +601,25 @@ function init(dwm) {
                 let code = unusecodes[--count]
                 let name = keys[index]
                 console.log(code, '---', new Date().toLocaleString());
-                const res1 = await getApi(code, 'history/trade', type[dwm])
-                debugger
-                console.log(`${code}：${res1.code}`);
-                if (res1.code === 200) {
-                    // 3.1 将成功的code存储
-                    let sql = `INSERT INTO ig502_used(code, type, type1) VALUES(${code}, ${name.split('_')[2]}, '${dwm}')`
-                    await getConnection(code, sql, dwm)
-                    // 3.2 将数据写入数据库
-                    await getConnection(code, addSql(code, res1.message, name, dwm), dwm)
-                } else if (res1.code === 404) {
-                    let sql = `INSERT INTO ig502_404(code, type) VALUES(${code}, '${dwm}')`
-                    await getConnection(code, sql, dwm)
-                }
-                next()
+                getApi(code, 'history/trade', type[dwm]).then(async res1 => {
+                    console.log(`${code}：${res1.code}`);
+                    if (res1.code === 200) {
+                        // 3.1 将成功的code存储
+                        let sql = `INSERT INTO ig502_used(code, type, type1) VALUES(${code}, ${name.split('_')[2]}, '${dwm}')`
+                        await getConnection(code, sql, dwm)
+                        // 3.2 将数据写入数据库
+                        await getConnection(code, addSql(code, res1.message, name, dwm), dwm)
+                    } else if (res1.code === 404) {
+                        let sql = `INSERT INTO ig502_404(code, type) VALUES(${code}, '${dwm}')`
+                        await getConnection(code, sql, dwm)
+                    }
+                    next()
+                }).catch(err => {
+                    ++count
+                    console.log(`${code}：${err.message}`);
+                    next()
+                })
+                
             }, 2500);
         }
     }
@@ -623,6 +633,10 @@ function getApi(code, type, dwm) {
             method:'GET',
             headers:{'Content-Type':'text/json' }
         }, (error,response,body) => {
+            // 调完接口后，有可能就报错了，发个邮件通知一下
+            timeId = setTimeout(() => {
+                email.sendMail('已经三分钟了，任务好像失败了呢')
+            }, 3 * 1000 * 60)
             if (error) {
                 reject(`${code}：error`)
             }
@@ -671,10 +685,11 @@ function getConnectionDB(code, sql) {
 function getConnection(code, sql, dwm) {
     return new Promise((reslove, reject) => {
         connection.query(sql, (err, result) => {
+            // 清除 发送失败内容的邮件
+            clearTimeout(timeId)
             if (err) {
                 failCodes.push(code)
                 connection.query(`DELETE  FROM ig502_used WHERE code=${code} and type1='${dwm}'`)
-                debugger
                 console.log(`${code}: ${err.message}`);
                 reslove(`${code}: 写入失败`)
             } else {
@@ -745,27 +760,41 @@ async function initQuery(dwm = 'day') {
 
 
 function nodeSchedule() {
+    // let rule = new schdule.RecurrenceRule(); 
+    /**
+     * rule: Object{
+     *      date:null
+     *      dayOfWeek:null
+     *      hour:null
+     *      minute:null
+     *      month:null
+     *      recurs:true
+     *      second:0
+     *      year:null
+     * }
+     */
+    // 例： rule.hour = [1, 3, 4, 20]. 表示 1点、3点、4点、晚上8点 运行
     // '* * * * * *' '秒分时日月周'
     // 例： 每日的12.30 -> '00 30 12 * * *'
-    // schdule.scheduleJob('00 30 16 * * *', () => {
-    //     connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
-    //         if (err) {
-    //         } else {
-    //             await initQuery('day')
-    //             update('day')
-    //         }
-    //     })
-    // })
-    // schdule.scheduleJob('00 30 4 * * 6', () => {
-    //     // 每周六 的4.30 更新
-    //     connection.query(`DELETE FROM ig502_today WHERE type = 'week'`, async (err, result) => {
-    //         if (err) {
-    //         } else {
-    //             await initQuery('week')
-    //             update('week')
-    //         }
-    //     })
-    // })
+    schdule.scheduleJob('00 30 16 * * *', () => {
+        connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
+            if (err) {
+            } else {
+                await initQuery('day')
+                update('day')
+            }
+        })
+    })
+    schdule.scheduleJob('00 30 4 * * 5', () => {
+        // 每周六 的4.30 更新
+        connection.query(`DELETE FROM ig502_today WHERE type = 'week'`, async (err, result) => {
+            if (err) {
+            } else {
+                await initQuery('week')
+                update('week')
+            }
+        })
+    })
     // schdule.scheduleJob('00 30 1 1 * *', () => {
     //     // 每月 1 号的 1.30 更新
     //     connection.query(`DELETE FROM ig502_today WHERE type = 'month'`, async (err, result) => {
