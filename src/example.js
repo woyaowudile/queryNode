@@ -21,12 +21,12 @@ const CODE002 = createCodes('002000', '002999');
 // 沪市
 const CODE600 = createCodes(600000, 600999);
 const CODE601 = createCodes(601000, 601999);
-const CODE603 = createCodes(603000, 603100);
+const CODE603 = createCodes(603000, 603999);
 const CODELIST = {
-    // 'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
-    // 'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_000': CODE000.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_002': CODE002.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_600': CODE600.map(level1 => (level1+'').padStart(6, 0)),
+    'ig502_datas_601': CODE601.map(level1 => (level1+'').padStart(6, 0)),
     'ig502_datas_603': CODE603.map(level1 => (level1+'').padStart(6, 0))
 };
 
@@ -777,23 +777,25 @@ function nodeSchedule() {
      *      year:null
      * }
      */
-    // 例： rule.hour = [1, 3, 4, 20]. 表示 1点、3点、4点、晚上8点 运行
+    // 例： rule.hour = [1, 3, 4, 20]. 表示 每天 1点、3点、4点、晚上8点 运行
     // '* * * * * *' '秒分时日月周'
     // 例： 每日的12.30 -> '00 30 12 * * *'
-    schdule.scheduleJob('00 30 16 * * *', () => {
+    schdule.scheduleJob('00 00 16 * * *', () => {
         connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
             if (err) {
             } else {
+                email.sendMail(`今天（${new Date().toLocaleString()}）的任务开始了`)
                 await initQuery('day')
                 update('day')
             }
         })
     })
-    schdule.scheduleJob('00 30 4 * * 5', () => {
+    schdule.scheduleJob('00 30 2 * * 5', () => {
         // 每周六 的4.30 更新
         connection.query(`DELETE FROM ig502_today WHERE type = 'week'`, async (err, result) => {
             if (err) {
             } else {
+                email.sendMail(`这周（${new Date().toLocaleString()}）的任务开始了`)
                 await initQuery('week')
                 update('week')
             }
@@ -804,6 +806,7 @@ function nodeSchedule() {
     //     connection.query(`DELETE FROM ig502_today WHERE type = 'month'`, async (err, result) => {
     //         if (err) {
     //         } else {
+    //             email.sendMail(`本月（${new Date().toLocaleString()}）的任务开始了`)
     //             await initQuery('month')
     //             update('month')
     //         }
