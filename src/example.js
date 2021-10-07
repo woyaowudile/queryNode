@@ -518,13 +518,26 @@ function download(results, modelName, {d='all', flag = false, type='day'} = {}) 
 }
 /* ******************************************** */
 
+function getCodeResult(tables, code) {
+    return new Promise((rl, rj) => {
+        let day = '2021-09-30' || someDay(0)
+        let sql = `SELECT * FROM ${tables} WHERE d='${day}' and code=${code} `
+        connection.query(sql, (err, result) => {
+            let res = {
+                code: 'rl',
+                message: `${code}：${day} 数据已存在`
+            }
+            rl(result.length ? res : {})
+        })
+    })
+}
 function update(dwm = 'day') {
     let type = {
         day: 'Day_qfq',
         week: 'Week_qfq',
         month: 'Month_qfq',
     }[dwm]
-   return new Promise((reslove, reject) => {
+    return new Promise((reslove, reject) => {
         let codes = usedCodes.filter(level1 => !todayCodes.includes(level1))
         //    let objs = {
         //        a: [{a1:1},{a2:2},{a3:3}],
@@ -553,20 +566,26 @@ function update(dwm = 'day') {
                 setTimeout( async () => {
                     let code = unusecodes[--count]
                     console.log(code, '---', new Date().toLocaleString());
-                    const res1 = await getApi(code, 'real/time', type)
-                    console.log(`${code}：${res1.code}`);
-                    if (res1.code === 200) {
-                        // 3.2 将数据写入数据库
-                        const res2 = await getConnection(code, addSql(code, '[' + res1.message + ']', 'ig502_today', dwm), dwm)
-                        const res3 = await getConnection(code, addSql(code, '[' + res1.message + ']', keys[index], dwm), dwm)
-                        console.log(res3, keys[index]);
-                    }
-                    next()
+                    await getCodeResult(keys[index], code).then(async d => {
+                        if (d.code !== 'rl') {
+                            const res1 = await getApi(code, 'real/time', type)
+                            console.log(`${code}：${res1.code}`);
+                            if (res1.code === 200) {
+                                // 3.2 将数据写入数据库
+                                const res2 = await getConnection(code, addSql(code, '[' + res1.message + ']', 'ig502_today', dwm), dwm)
+                                const res3 = await getConnection(code, addSql(code, '[' + res1.message + ']', keys[index], dwm), dwm)
+                                console.log(res3, keys[index]);
+                            }
+                        } else {
+                            console.log(`>> ${code}：${d.message}`);
+                        }
+                        next()
+                    })
                 }, 2100);
             }
         }
         next(count, unusecodes)
-   })
+    })
 }
 
 function init(dwm) {
@@ -790,7 +809,7 @@ function nodeSchedule() {
             }
         })
     })
-    schdule.scheduleJob('00 30 2 * * 5', () => {
+    schdule.scheduleJob('00 30 2 * * 6', () => {
         // 每周六 的4.30 更新
         connection.query(`DELETE FROM ig502_today WHERE type = 'week'`, async (err, result) => {
             if (err) {
@@ -801,17 +820,17 @@ function nodeSchedule() {
             }
         })
     })
-    // schdule.scheduleJob('00 30 1 1 * *', () => {
-    //     // 每月 1 号的 1.30 更新
-    //     connection.query(`DELETE FROM ig502_today WHERE type = 'month'`, async (err, result) => {
-    //         if (err) {
-    //         } else {
-    //             email.sendMail(`本月（${new Date().toLocaleString()}）的任务开始了`)
-    //             await initQuery('month')
-    //             update('month')
-    //         }
-    //     })
-    // })
+    schdule.scheduleJob('00 30 1 1 * *', () => {
+        // 每月 1 号的 1.30 更新
+        connection.query(`DELETE FROM ig502_today WHERE type = 'month'`, async (err, result) => {
+            if (err) {
+            } else {
+                email.sendMail(`本月（${new Date().toLocaleString()}）的任务开始了`)
+                await initQuery('month')
+                update('month')
+            }
+        })
+    })
 }
 
 app.listen(port, () => {
