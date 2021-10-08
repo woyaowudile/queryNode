@@ -517,17 +517,58 @@ function download(results, modelName, {d='all', flag = false, type='day'} = {}) 
     })
 }
 /* ******************************************** */
-
-function getCodeResult(tables, code) {
+function dupRemove(tables, datas) {
+    let arr = [], results = []
+    datas.forEach(level1 => {
+        let { h,l,o,c,v, type } = level1
+        let find = arr.find(level2 => {
+            let { h:h2, l:l2, o:o2, c:c2, v:v2, type: t2 } = level2
+            return h === h2 && l === l2 && o === o2 && c === c2 && v === v2 && type === t2
+        })
+        if (!find) {
+            arr.push(level1)
+        } else {
+            results.push(level1)
+        }
+    })
+    return new Promise((rl, rj) => {
+        let count = -1
+        let fn = async function () {
+            let item = results[++count]
+            if (item) {
+                await delDup(tables, item)
+                fn()
+            } else {
+                rl()
+            }
+        }
+        fn()
+    })
+}
+function delDup(tables, { code, id }) {
+    return new Promise((rl, rj) => {
+        let sql = `DELETE FROM ${tables} WHERE code=${code} and id=${id}`
+        connection.query(sql, (err, res) => {
+            if (!err) {
+                rl()
+            }
+        })
+    })
+}
+function getCodeResult(tables, code, dwm) {
     return new Promise((rl, rj) => {
         let day = '2021-09-30' || someDay(0)
-        let sql = `SELECT * FROM ${tables} WHERE d='${day}' and code=${code} `
-        connection.query(sql, (err, result) => {
+        let sql = `SELECT * FROM ${tables} WHERE d='${day}' and code=${code} and type='${dwm}'`
+        connection.query(sql, async (err, result) => {
             let res = {
                 code: 'rl',
                 message: `${code}：${day} 数据已存在`
             }
-            rl(result.length ? res : {})
+            // result有值时是数组，没值时是undefined
+            if (result) {
+                await dupRemove(tables, result)
+            }
+            rl(result ? res : {})
         })
     })
 }
@@ -566,7 +607,7 @@ function update(dwm = 'day') {
                 setTimeout( async () => {
                     let code = unusecodes[--count]
                     console.log(code, '---', new Date().toLocaleString());
-                    await getCodeResult(keys[index], code).then(async d => {
+                    await getCodeResult(keys[index], code, dwm).then(async d => {
                         if (d.code !== 'rl') {
                             const res1 = await getApi(code, 'real/time', type)
                             console.log(`${code}：${res1.code}`);
