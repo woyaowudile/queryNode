@@ -846,7 +846,7 @@ async function initQuery(dwm = 'day') {
 
 
 function nodeSchedule() {
-    // let rule = new schdule.RecurrenceRule(); 
+    let rule = new schdule.RecurrenceRule(); 
     /**
      * rule: Object{
      *      date:null
@@ -862,7 +862,8 @@ function nodeSchedule() {
     // 例： rule.hour = [1, 3, 4, 20]. 表示 每天 1点、3点、4点、晚上8点 运行
     // '* * * * * *' '秒分时日月周'
     // 例： 每日的12.30 -> '00 30 12 * * *'
-    schdule.scheduleJob('00 30 16 * * *', () => {
+    rule.dayOfWeek = [1,2,3,4,5]
+    schdule.scheduleJob(rule, () => {
         connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
             if (err) {
             } else {
