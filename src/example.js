@@ -135,7 +135,7 @@ app.get('/api/update',  async (req, res) => {
     // 1. 将成功的 和 不存在 的code 都取出来
     await initQuery(query.type)
     
-    await update(query.type)
+    await update(query.type, query.someDay)
 })
 
 app.get('/api/before/download',  async (req, res) => {
@@ -517,7 +517,7 @@ function download(results, modelName, {d='all', flag = false, type='day'} = {}) 
     })
 }
 /* ******************************************** */
-function dupRemove(tables, datas) {
+function dupRemove(tables, datas, delAll) {
     let arr = [], results = []
     datas.forEach(level1 => {
         let { h,l,o,c,v, type } = level1
@@ -531,10 +531,11 @@ function dupRemove(tables, datas) {
             results.push(level1)
         }
     })
+    let dels = delAll ? datas : results
     return new Promise((rl, rj) => {
         let count = -1
         let fn = async function () {
-            let item = results[++count]
+            let item = dels[++count]
             if (item) {
                 await delDup(tables, item)
                 fn()
@@ -547,7 +548,8 @@ function dupRemove(tables, datas) {
 }
 function delDup(tables, { code, id }) {
     return new Promise((rl, rj) => {
-        let sql = `DELETE FROM ${tables} WHERE code=${code} and id=${id}`
+        // let sql = `DELETE FROM ${tables} WHERE code=${code} and id=${id}`
+        let sql = `DELETE FROM ${tables} WHERE id=${id}`
         connection.query(sql, (err, res) => {
             if (!err) {
                 rl()
@@ -555,24 +557,43 @@ function delDup(tables, { code, id }) {
         })
     })
 }
-function getCodeResult(tables, code, dwm) {
+function getCodeResult(tables, code, dwm, days = 0) {
     return new Promise((rl, rj) => {
-        let day = someDay(0)
-        let sql = `SELECT * FROM ${tables} WHERE d='${day}' and code=${code} and type='${dwm}'`
+        /**
+         * days 日期修正，场景：update 且 dwm='day'
+         * 周五时更新了一半，某种原因停止了
+         * 现在是周六。以下的sql只能查到周六，不能查到周五已经被插入的数据，所以会重复
+         * 这里加个日期修正，例如：1.表示今天往前一天，即今天周六，sql查询周五、周六的数据。
+         * 
+         */
+        let day = someDay(days)
+        switch(dwm) {
+            case 'week':
+                let time = new Date().getDay()
+                day = someDay((time === 0 ? 7 : time) - 1)
+                break;
+            case 'month':
+                day = someDay(new Date().getDate() - 1)
+                break;
+            default:
+                break;
+        }
+        let sql = `SELECT * FROM ${tables} WHERE d>='${day}' and code=${code} and type='${dwm}'`
         connection.query(sql, async (err, result) => {
             let res = {
                 code: 'rl',
                 message: `${code}：${day} 数据已存在`
             }
-            // result有值时是数组，没值时是undefined
-            if (result) {
-                await dupRemove(tables, result)
+            // result有值时是数组，没值时是undefined||[]
+            let flag = result && result.length
+            if (flag) {
+                await dupRemove(tables, result, dwm === 'day')
             }
-            rl(result ? res : {})
+            rl(flag ? res : {})
         })
     })
 }
-function update(dwm = 'day') {
+function update(dwm = 'day', days) {
     let type = {
         day: 'Day_qfq',
         week: 'Week_qfq',
@@ -607,7 +628,7 @@ function update(dwm = 'day') {
                 setTimeout( async () => {
                     let code = unusecodes[--count]
                     console.log(code, '---', new Date().toLocaleString());
-                    await getCodeResult(keys[index], code, dwm).then(async d => {
+                    await getCodeResult(keys[index], code, dwm, days).then(async d => {
                         if (d.code !== 'rl') {
                             const res1 = await getApi(code, 'real/time', type)
                             console.log(`${code}：${res1.code}`);
@@ -782,6 +803,7 @@ function createCodes(start, end) {
     }
     return results;
 }
+
 
 function someDay(days) {
     let today = new Date()
