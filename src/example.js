@@ -366,34 +366,34 @@ function getModel(data, code, dwmType) {
         // if(data[start].d === '2017-08-31') {
         //     debugger
         // }
-        // modelJs.isSlqs(params) // ok
-        // modelJs.isSlbw0(params); // ok
+        modelJs.isSlqs(params) // ok
+        modelJs.isSlbw0(params); // ok
         // // modelJs.isSlbw4(params);
         // // modelJs.isCBZ(params);
         // modelJs.isFkwz(params);
         // // modelJs.isG8M1(params);
-        // modelJs.isyylm(params); // ok
+        modelJs.isyylm(params); // ok
         switch (modelJs.YingYang(level1)) {
             case 1:
                 // modelJs.isKlyh(params);
                 // modelJs.isQx1(params);
                 // modelJs.isQx2(params);
                 // modelJs.isCsfr(params);
-                // modelJs.isDY(params); // ok
+                modelJs.isDY(params); // ok
                 break;
             case 2:
                 // if (start > 60 && modelJs.zdf(data.slice(start - 1, start + 1)) > 9.7) {
-                //     modelJs.isSlbw1(params) // ok
+                    modelJs.isSlbw1(params) // ok
                 //     // modelJs.isSlbw2(params)
-                //     modelJs.isSlbw3(params); // ok
-                //     modelJs.isLzyy(params); // ok
-                //     modelJs.isFhlz(params); // ok
-                //     modelJs.isFlzt(params); // ok
+                    modelJs.isSlbw3(params); // ok
+                    modelJs.isLzyy(params); // ok
+                    modelJs.isFhlz(params); // ok
+                    modelJs.isFlzt(params); // ok
                 //     // modelJs.testIsZTB(params)
                 // }
                 // // modelJs.isLahm(params);
                 modelJs.isYjsd(params); // ok
-                // modelJs.isYydl(params); // ok
+                modelJs.isYydl(params); // ok
                 // modelJs.isGsdn(params);
                 break;
             default:
@@ -557,7 +557,7 @@ function delDup(tables, { code, id }) {
 }
 function getCodeResult(tables, code, dwm) {
     return new Promise((rl, rj) => {
-        let day = '2021-09-30' || someDay(0)
+        let day = someDay(0)
         let sql = `SELECT * FROM ${tables} WHERE d='${day}' and code=${code} and type='${dwm}'`
         connection.query(sql, async (err, result) => {
             let res = {
