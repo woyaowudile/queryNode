@@ -862,8 +862,12 @@ function nodeSchedule() {
     // 例： rule.hour = [1, 3, 4, 20]. 表示 每天 1点、3点、4点、晚上8点 运行
     // '* * * * * *' '秒分时日月周'
     // 例： 每日的12.30 -> '00 30 12 * * *'
-    rule.dayOfWeek = [1,2,3,4,5]
-    schdule.scheduleJob(rule, () => {
+    schdule.scheduleJob({
+        dayOfWeek: [1,2,3,4,5],
+        hour: [16],
+        minute: [30],
+        second: [0]
+    }, () => {
         connection.query(`DELETE FROM ig502_today WHERE type = 'day'`, async (err, result) => {
             if (err) {
             } else {
@@ -898,6 +902,14 @@ function nodeSchedule() {
 }
 
 app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`)
+    console.log('-\n--\n---');
+    console.log(`---- 启动地址：http://localhost:${port}`);
+    console.log('-------------常用链接地址---------------')
+    console.log(`http://localhost:${port}/api/init`)
+    console.log(`http://localhost:${port}/api/update`)
+    console.log(`http://localhost:${port}/api/before/download?d=1000`)
+    console.log(`http://localhost:${port}/api/download`)
+    console.log('-------------常用链接地址---------------')
+    console.log('---\n--\n-');
 })
   
